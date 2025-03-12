@@ -1,0 +1,12 @@
+00008000                                     1  	ORG		$8000
+00008000  =00000004                          2  N	EQU		4	
+00009000                                     3  	ORG		$9000
+00009000  303C 0000                          4  	MOVE.W	#0,D0
+00009004  B07C 0004                          5  FOR:	CMP.W	#N,D0
+00009008  6C00 0006                          6  	BGE	FUORI
+0000900C  5240                               7  	ADD.W		#1,D0
+0000900E  60F4                               8  	BRA	FOR
+00009010                                     9  FUORI:	
+
+No errors detected
+No warnings generated

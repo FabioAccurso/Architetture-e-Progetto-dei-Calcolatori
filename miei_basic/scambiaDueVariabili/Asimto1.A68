@@ -1,11 +1,12 @@
-; **Esercizio che scambia i valori di due variabili**
-
-	ORG	$8000
-X	DC.B	2
-Y	DC.B	4
+	ORG 	$8000
+X	DC.W	2
+Y	DC.W	4
 
 	ORG	$9000
-	MOVE.B	X,D0
-	MOVE.B	Y,D1
-	MOVE.B	D1,X
-	MOVE.B	D0,Y	
+START	MOVE.W	X,D0
+	MOVE.W	Y,D1
+	MOVE.W	D1,X
+	MOVE.W	D0,Y
+	STOP	#2700
+
+

@@ -1,0 +1,20 @@
+	ORG	$8000
+VET1	DC.W	2,3,4,5
+VET2	DS.W	4
+N	EQU	4
+
+	ORG	$9000
+START:
+	MOVEA.W	#VET1,A1
+	MOVEA.W	#VET2,A2 	;Potevo anche fare in entrambi i casi -> LEA	VET1,A0
+	MOVE.W	#0,D0
+FOR:	CMP.W	#N,D0
+	BGE	FUORI
+	MOVE.W	A1,A2	
+	ADDA.W	#2,A1
+	ADDA.W	#2,A2
+	ADD.W		#1,D0
+	BRA	FOR
+
+
+FUORI:
