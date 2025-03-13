@@ -1,0 +1,25 @@
+00000000                                     1  ; **Date due variabili calcola la somma utilizzando una subroutine**
+00008000                                     2  	ORG 		$8000		; Area Dati
+00008000  0002                               3  X	DC.W		2
+00008002  0007                               4  Y	DC.W		7
+00008004                                     5  RIS	DS.W		1
+00008006                                     6  
+00009000                                     7  	ORG		$9000		; Area codice
+00009000                                     8  SUM:	
+00009000  206F 0008                          9  	MOVEA.L	8(SP),A0	;Prendo da stack indirizzo X	
+00009004  226F 0004                         10  	MOVEA.L	4(SP),A1	;Prendo da stack indirizzo Y
+00009008  4240                              11  	CLR		D0		;Azzero contenuto D0
+0000900A  D050                              12  	ADD.W		(A0),D0		;D0=D0+Contenuto(A0)
+0000900C  D051                              13  	ADD.W		(A1),D0		;D0=D0+Contenuto(A1)
+0000900E  4E75                              14  	RTS				;Istruzione di ritorno
+00009010                                    15  
+00009010  2F3C 00008000                     16  MAIN:	MOVE.L	#X,-(SP)	;Carico indirizzo di x su stack -> 4byte
+00009016  2F3C 00008002                     17  	MOVE.L	#Y,-(SP)	;Carci indirizzodi y su stack -> 4bye
+0000901C  4EB9 00009000                     18  	JSR	SUM			; Chiamata a subroutine
+00009022  DEFC 0008                         19  	ADDA	#8,SP			;Pop di 8 byte, ovvero byte dei parametri (4+4)
+00009026  33C0 00008004                     20  	MOVE.W	D0,RIS		;Prendo da D0 risultato del metodo e lo metto nella variabile risultato
+0000902C                                    21  
+0000902C                                    22  	END MAIN
+
+No errors detected
+No warnings generated

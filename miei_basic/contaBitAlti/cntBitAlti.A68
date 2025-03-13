@@ -1,0 +1,36 @@
+	ORG	$8000
+STR	DC.W		15		; stringa di cui contare bit alti, 1111 -> 4 bit alti
+RST	DS.W		1		; variabile in cui scrivere risultato
+SPSTR	EQU		4		; Spiazzamento da cima dello stack
+N	EQU		8		;Numero di bit stringa da analizzare
+
+	ORG	$9000
+CNT:
+	MOVEA.L	SPSTR(SP),A1	;Prendo indirizzo della stringa da stack
+	CLR		D0		;Usato per conteggiare il numero di bit alti
+	CLR		D1		;Variabile for, azzerata	
+	MOVE.W	#1,D2		;Lo utilizzo per maschera, parte da 00000001	
+
+FOR:	CMP		#N,D1		
+	BGE	FUORI			;se D1>=N esco dal for altrimenti continuo
+	MOVE.W	(A1),D3		;Carico ogni esecuzione del for D3 con la stringa in modo da non sovrascrivere stringa
+	AND.W		D2,D3		;D3 = D2 AND D3 , ovvero And tra maschera e stringa
+	BEQ	SKIP			;Branch Equal -> Se Z=1 allora il risultato della AND e' di tutti zeri e quindi salto (skip) incremento del contatore di 1 (D0)
+	ADD.W		#1,D0		;Se non skippo, incremento variabile D0
+SKIP	MULU		#2,D2		; Moltiplico il contenuto di D2 (maschera) per 2 in modo da shiftare a sinistra il bit alto
+	ADD.W		#1,D1		;Incremento variabile del for
+	BRA	FOR
+
+FUORI: 
+	RTS				;Ritorno da subroutine		
+
+MAIN:
+	MOVE.L	#STR,-(SP)	;Metto su stack indirizzo stringa STR
+	JSR	CNT
+	ADDA		#4,SP		; Push degli elementi inseriti su stack -> 4 byte
+	MOVE.W	D0,RST
+
+	END MAIN
+
+
+

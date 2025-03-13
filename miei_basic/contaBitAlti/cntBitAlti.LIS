@@ -1,0 +1,36 @@
+00008000                                     1  	ORG	$8000
+00008000  000F                               2  STR	DC.W		15		; stringa di cui contare bit alti, 1111 -> 4 bit alti
+00008002                                     3  RST	DS.W		1		; variabile in cui scrivere risultato
+00008004  =00000004                          4  SPSTR	EQU		4		; Spiazzamento da cima dello stack
+00008004  =00000008                          5  N	EQU		8		;Numero di bit stringa da analizzare
+00008004                                     6  
+00009000                                     7  	ORG	$9000
+00009000                                     8  CNT:
+00009000  226F 0004                          9  	MOVEA.L	SPSTR(SP),A1	;Prendo indirizzo della stringa da stack
+00009004  4240                              10  	CLR		D0		;Usato per conteggiare il numero di bit alti
+00009006  4241                              11  	CLR		D1		;Variabile for, azzerata	
+00009008  343C 0001                         12  	MOVE.W	#1,D2		;Lo utilizzo per maschera, parte da 00000001	
+0000900C                                    13  
+0000900C  B27C 0008                         14  FOR:	CMP		#N,D1		
+00009010  6C00 0014                         15  	BGE	FUORI			;se D1>=N esco dal for altrimenti continuo
+00009014  3611                              16  	MOVE.W	(A1),D3		;Carico ogni esecuzione del for D3 con la stringa in modo da non sovrascrivere stringa
+00009016  C642                              17  	AND.W		D2,D3		;D3 = D2 AND D3 , ovvero And tra maschera e stringa
+00009018  6700 0004                         18  	BEQ	SKIP			;Branch Equal -> Se Z=1 allora il risultato della AND e' di tutti zeri e quindi salto (skip) incremento del contatore di 1 (D0)
+0000901C  5240                              19  	ADD.W		#1,D0		;Se non skippo, incremento variabile D0
+0000901E  C4FC 0002                         20  SKIP	MULU		#2,D2		; Moltiplico il contenuto di D2 (maschera) per 2 in modo da shiftare a sinistra il bit alto
+00009022  5241                              21  	ADD.W		#1,D1		;Incremento variabile del for
+00009024  60E6                              22  	BRA	FOR
+00009026                                    23  
+00009026                                    24  FUORI: 
+00009026  4E75                              25  	RTS				;Ritorno da subroutine		
+00009028                                    26  
+00009028                                    27  MAIN:
+00009028  2F3C 00008000                     28  	MOVE.L	#STR,-(SP)	;Metto su stack indirizzo stringa STR
+0000902E  4EB9 00009000                     29  	JSR	CNT
+00009034  DEFC 0004                         30  	ADDA		#4,SP		; Push degli elementi inseriti su stack -> 4 byte
+00009038  33C0 00008002                     31  	MOVE.W	D0,RST
+0000903E                                    32  
+0000903E                                    33  	END MAIN
+
+No errors detected
+No warnings generated
