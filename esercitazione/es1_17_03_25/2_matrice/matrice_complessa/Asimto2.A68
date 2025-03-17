@@ -1,0 +1,109 @@
+RIG	EQU	5
+COL	EQU 	5
+
+	ORG	$8000
+MAT	DC.B	100,12,34,42,23,61,54,23,45,1,21,56,76,55,23,56,78,42,111,12,34,121,90,12,77		; Min = 1 (riga 2) <-> Max = 121 (riga 5)
+MIN	DS.B	1
+MAX	DS.B	1
+
+
+	ORG	$9000
+*************************************************************************************************************************
+** Sottoprogramma per il calcolo del Massimo**
+
+MAS:			CLR.W		D0	 				; Uso D0 per indice FOR Righe
+			CLR.W		D1					; Uso D1 per indice FOR Colonne
+			CLR.W		D3
+			MOVEA.L	4(SP),A0
+FORMAXR:		CMP	#RIG,D0		
+			BGE	FUORI	
+FORMAXC:			CMP	#COL,D1	
+				BGE	CONTR
+					CMP.B		(A0),D3		
+					BGE	CONTC
+						MOVE.B	(A0),D3		; Uso D3 per il MAX Temporaneo
+						MOVE.W	D0,D4		; Salvo in D4 indice riga massimo
+CONTC:		ADD.W		#1,D1
+			ADDA.L	#1,A0
+			BRA	FORMAXC
+
+CONTR:		ADD.W		#1,D0
+			CLR.W		D1					; Azzero D1 indice colonne
+			BRA	FORMAXR
+
+*************************************************************************************************************************
+FUORI:		RTS
+*************************************************************************************************************************
+** Sottoprogramma per il calcolo del Minimo**
+
+MINI:		CLR.W		D0						; Uso D0 per indice FOR Righe
+		CLR.W		D1		  				; Uso D1 per indice FOR Colonne
+		MOVE.B	#$FF,D3		 			; Inizializzo D3 con il valore massimo che puo' esserci in un elemento della matrice
+		MOVEA.L	4(SP),A0
+FORMINR:	CMP		#RIG,D0
+		BGE	FUORI
+FORMINC:		CMP	#COL,D1
+			BGE	CONTR1
+				CMP.B		(A0),D3
+				BLO		CONTC1			; Uso BLO per verificare che D3<=(A0) perche' unisigned. BLE e BLT sono signed e quindi FF lo legge come -128
+						MOVE.B	(A0),D3
+						MOVE.W	D0,D5		; Salvo in D5 indice riga minimo
+
+CONTC1:	ADD.W		#1,D1
+		ADDA.L	#1,A0
+		BRA	FORMINC
+
+CONTR1:	ADD.W		#1,D0
+		CLR.W		D1
+		BRA	FORMINR
+*************************************************************************************************************************
+** Sottoprogramma per scambiare due righe della matrice se differenti**
+
+SWP:		CMP		D4,D5			; Se sono uguali (Rmax=Rmin) ritorno al main, altrimenti proseguo con lo scambio
+		BEQ	FUORI	
+
+		MOVEA.L	4(SP),A0
+		MOVEA.L	4(SP),A1		; Inserisco in A0 e A1 indirizzo matrice. Dopo andro' ad aggiustarli affinche possano puntare ciascuno al primo elemento della riga da spostare
+		CLR.W		D0
+		CLR.W		D1		
+		CLR.W		D2			; Uso D2 come indice per scorrere colonne nel for di RFOR
+
+ADX:		CMP		D0,D4
+		BLE		ADN
+		ADD.W		#1,D0
+		ADDA.L	#COL,A0		; Alla fine in A0 ci sara' indirizzo primo elemento della riga che contiene il massimo
+		BRA	ADX	
+
+ADN:		CMP		D1,D5
+		BLE		RFOR
+		ADD.W		#1,D1
+		ADDA.L	#COL,A1		; Alla fine in A1 ci sara' indirizzo primo elemento della riga che contiene il minimo
+		BRA	ADN	
+	
+
+RFOR:		CMP		#COL,D2
+		BGE	FUORI
+			MOVE.B	(A0),D3
+			MOVE.B	(A1),(A0)	; Scambio attraverso 3 operazioni cio a cui punta A0 con cio a cui punta A1
+			MOVE.B	D3,(A1)
+			ADD.W		#1,D2
+			ADDA.L	#1,A0		; Sposto anche riferimenti
+			ADDA.L	#1,A1
+		BRA	RFOR
+*************************************************************************************************************************
+** Main: Calcola attraverso i sottoprogrammi massimo e minimo della matrice e nel caso in cui siano su righe diverse scambia le righe**
+
+BEGIN:		MOVE.L	#MAT,-(SP)		;Inserisco su stack indirizzo primo elemento matrice (4 Byte)
+		JSR	MAS
+		MOVE.B	D3,MAX
+		JSR	MINI
+		MOVE.B	D3,MIN
+		JSR	SWP
+		ADDA.L	#4,SP			; Elimino da stack indirizzo matrice
+LOOP	JMP	LOOP
+
+
+
+
+	END BEGIN
+

@@ -1,0 +1,15 @@
+ERROR in line 11: Invalid syntax
+ERROR in line 34: Invalid syntax
+ERROR in line 36: Invalid opcode
+ERROR in line 37: Symbol value differs between first and second pass
+ERROR in line 59: Invalid syntax
+ERROR in line 60: Symbol value differs between first and second pass
+ERROR in line 85: Invalid addressing mode
+ERROR in line 91: Invalid addressing mode
+ERROR in line 92: Invalid addressing mode
+ERROR in line 94: Invalid syntax
+ERROR in line 95: Symbol value differs between first and second pass
+ERROR in line 103: Undefined symbol
+ERROR in line 104: Undefined symbol
+13 errors detected
+No warnings generated

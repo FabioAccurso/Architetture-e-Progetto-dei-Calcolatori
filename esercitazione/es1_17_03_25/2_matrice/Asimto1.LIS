@@ -1,0 +1,111 @@
+00000000  =00000002                          1  RIG	EQU	2
+00000000  =00000003                          2  COL	EQU 	3
+00000000                                     3  
+00008000                                     4  	ORG	$8000
+00008000  04 01 03 04 02 06                  5  MAT	DC.B	4,1,3,4,2,6
+00008006                                     6  MIN	DS.B	1
+00008007                                     7  MAX	DS.B	1
+00008008                                     8  
+00008008                                     9  
+00009000                                    10  	ORG	$9000
+00009000                                    11  *************************************************************************************************************************
+00009000                                    12  ** Sottoprogramma per il calcolo del Massimo**
+00009000                                    13  
+00009000  4240                              14  MAS:			CLR.W		D0	 				; Uso D0 per indice FOR Righe
+00009002  4241                              15  			CLR.W		D1					; Uso D1 per indice FOR Colonne
+00009004  4243                              16  			CLR.W		D3
+00009006  206F 0004                         17  			MOVEA.L	4(SP),A0
+0000900A  B07C 0002                         18  FORMAXR:		CMP	#RIG,D0		
+0000900E  6C00 0024                         19  			BGE	FUORI	
+00009012  B27C 0003                         20  FORMAXC:			CMP	#COL,D1	
+00009016  6C00 0016                         21  				BGE	CONTR
+0000901A  B610                              22  					CMP.B		(A0),D3		
+0000901C  6C00 0006                         23  					BGE	CONTC
+00009020  1610                              24  						MOVE.B	(A0),D3		; Uso D3 per il MAX Temporaneo
+00009022  3800                              25  						MOVE.W	D0,D4		; Salvo in D4 indice riga massimo
+00009024  5241                              26  CONTC:		ADD.W		#1,D1
+00009026  D1FC 00000001                     27  			ADDA.L	#1,A0
+0000902C  60E4                              28  			BRA	FORMAXC
+0000902E                                    29  
+0000902E  5240                              30  CONTR:		ADD.W		#1,D0
+00009030  4241                              31  			CLR.W		D1					; Azzero D1 indice colonne
+00009032  60D6                              32  			BRA	FORMAXR
+00009034                                    33  
+00009034                                    34  *************************************************************************************************************************
+00009034  4E75                              35  FUORI:		RTS
+00009036                                    36  *************************************************************************************************************************
+00009036                                    37  ** Sottoprogramma per il calcolo del Minimo**
+00009036                                    38  
+00009036  4240                              39  MINI:		CLR.W		D0						; Uso D0 per indice FOR Righe
+00009038  4241                              40  		CLR.W		D1		  				; Uso D1 per indice FOR Colonne
+0000903A  163C 00FF                         41  		MOVE.B	#$FF,D3		 			; Inizializzo D3 con il valore massimo che puo' esserci in un elemento della matrice
+0000903E  206F 0004                         42  		MOVEA.L	4(SP),A0
+00009042  B07C 0002                         43  FORMINR:	CMP		#RIG,D0
+00009046  6CEC                              44  		BGE	FUORI
+00009048  B27C 0003                         45  FORMINC:		CMP	#COL,D1
+0000904C  6C00 0016                         46  			BGE	CONTR1
+00009050  B610                              47  				CMP.B		(A0),D3
+00009052  6500 0006                         48  				BLO		CONTC1			; Uso BLO per verificare che D3<=(A0) perche' unisigned. BLE e BLT sono signed e quindi FF lo legge come -128
+00009056  1610                              49  						MOVE.B	(A0),D3
+00009058  3A00                              50  						MOVE.W	D0,D5		; Salvo in D5 indice riga minimo
+0000905A                                    51  
+0000905A  5241                              52  CONTC1:	ADD.W		#1,D1
+0000905C  D1FC 00000001                     53  		ADDA.L	#1,A0
+00009062  60E4                              54  		BRA	FORMINC
+00009064                                    55  
+00009064  5240                              56  CONTR1:	ADD.W		#1,D0
+00009066  4241                              57  		CLR.W		D1
+00009068  60D8                              58  		BRA	FORMINR
+0000906A                                    59  *************************************************************************************************************************
+0000906A                                    60  ** Sottoprogramma per scambiare due righe della matrice se differenti**
+0000906A                                    61  
+0000906A  BA44                              62  SWP:		CMP		D4,D5			; Se sono uguali (Rmax=Rmin) ritorno al main, altrimenti proseguo con lo scambio
+0000906C  67C6                              63  		BEQ	FUORI	
+0000906E                                    64  
+0000906E  206F 0004                         65  		MOVEA.L	4(SP),A0
+00009072  226F 0004                         66  		MOVEA.L	4(SP),A1		; Inserisco in A0 e A1 indirizzo matrice. Dopo andro' ad aggiustarli affinche possano puntare ciascuno al primo elemento della riga da spostare
+00009076  4240                              67  		CLR.W		D0
+00009078  4241                              68  		CLR.W		D1		
+0000907A  4242                              69  		CLR.W		D2			; Uso D2 come indice per scorrere colonne nel for di RFOR
+0000907C                                    70  
+0000907C  B840                              71  ADX:		CMP		D0,D4
+0000907E  6F00 000C                         72  		BLE		ADN
+00009082  5240                              73  		ADD.W		#1,D0
+00009084  D1FC 00000003                     74  		ADDA.L	#COL,A0		; Alla fine in A0 ci sara' indirizzo primo elemento della riga che contiene il massimo
+0000908A  60F0                              75  		BRA	ADX	
+0000908C                                    76  
+0000908C  BA41                              77  ADN:		CMP		D1,D5
+0000908E  6F00 000C                         78  		BLE		RFOR
+00009092  5241                              79  		ADD.W		#1,D1
+00009094  D3FC 00000003                     80  		ADDA.L	#COL,A1		; Alla fine in A1 ci sara' indirizzo primo elemento della riga che contiene il minimo
+0000909A  60F0                              81  		BRA	ADN	
+0000909C                                    82  	
+0000909C                                    83  
+0000909C  B47C 0003                         84  RFOR:		CMP		#COL,D2
+000090A0  6C92                              85  		BGE	FUORI
+000090A2  1610                              86  			MOVE.B	(A0),D3
+000090A4  1091                              87  			MOVE.B	(A1),(A0)	; Scambio attraverso 3 operazioni cio a cui punta A0 con cio a cui punta A1
+000090A6  1283                              88  			MOVE.B	D3,(A1)
+000090A8  5242                              89  			ADD.W		#1,D2
+000090AA  D1FC 00000001                     90  			ADDA.L	#1,A0		; Sposto anche riferimenti
+000090B0  D3FC 00000001                     91  			ADDA.L	#1,A1
+000090B6  60E4                              92  		BRA	RFOR
+000090B8                                    93  *************************************************************************************************************************
+000090B8                                    94  ** Main: Calcola attraverso i sottoprogrammi massimo e minimo della matrice e nel caso in cui siano su righe diverse scambia le righe**
+000090B8                                    95  
+000090B8  2F3C 00008000                     96  BEGIN:		MOVE.L	#MAT,-(SP)		;Inserisco su stack indirizzo primo elemento matrice (4 Byte)
+000090BE  4EB9 00009000                     97  		JSR	MAS
+000090C4  13C3 00008007                     98  		MOVE.B	D3,MAX
+000090CA  4EB9 00009036                     99  		JSR	MINI
+000090D0  13C3 00008006                    100  		MOVE.B	D3,MIN
+000090D6  4EB9 0000906A                    101  		JSR	SWP
+000090DC  DFFC 00000004                    102  		ADDA.L	#4,SP			; Elimino da stack indirizzo matrice
+000090E2  4EF9 000090E2                    103  LOOP	JMP	LOOP
+000090E8                                   104  
+000090E8                                   105  
+000090E8                                   106  
+000090E8                                   107  
+000090E8                                   108  	END BEGIN
+
+No errors detected
+No warnings generated
