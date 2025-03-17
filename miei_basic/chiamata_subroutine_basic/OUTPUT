@@ -1,2 +1,4 @@
-No errors detected
+ERROR in line 38: Invalid opcode
+ERROR in line 42: Invalid addressing mode
+2 errors detected
 No warnings generated

@@ -1,0 +1,56 @@
+RIG	EQU	2
+COL	EQU 	3
+
+	ORG	$8000
+MAT	DC.B	1,4,3,4,2,6
+MIN	DS.B	1
+MAX	DS.B	1
+
+	ORG	$9000
+MAS:			CLR.W		D0
+			CLR.W		D1
+			CLR.W		D3
+			MOVEA.L	4(SP),A0
+FORMAXR:		CMP	#RIG,D0		;Uso D0 per indice FOR Righe
+			BGE	FUORI	
+FORMAXC:			CMP	#COL,D1	;Uso D1 per indice FOR Colonne
+				BGE	CONTR
+					CMP.B		(A0),D3		
+					BGE	CONTC
+						MOVE.B	(A0),D3
+						MOVE.W	D0,D4		;Salvo in D4 indice riga massimo
+CONTC:	ADD.W		#1,D1
+		ADDA.L	#1,A0
+		BRA	FORMAXC
+
+CONTR:	ADD.W		#1,D0
+		CLR.W		D1	;Azzero D1 indice colonne
+		BRA	FORMAXR
+FUORI:	
+	RTS
+
+
+MINI:			CLR.W		D0
+			CLR.W		D1
+			MOVE.B	$FF,D3		;Inizializzo D3 con il valore massimo che puo' esserci in un elemento della matrice
+			MOVEA.L	4(SP),A0
+
+;CONTINUA DA QUESTO PUNTO QUI
+
+
+BEGIN:	
+	MOVEA.L	#MAT,-(SP)	;4 Byte
+	JSR	MAS
+	MOVE.B	D3,MAX
+	JSR	MINI
+	MOVE.B	D3,MIN
+	ADDA.L	#4,SP		;elimino da stack indirizzo matrice
+
+
+LOOP	JMP	LOOP
+
+
+
+
+	END BEGIN
+
