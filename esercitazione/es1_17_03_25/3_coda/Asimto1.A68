@@ -1,14 +1,72 @@
 	ORG	$8000
+CODA	DS.W	6		; Coda da 6 word
 VET1	DC.B	1,1,1,0,0,1,0,0	; Vettore 1 -> per ogni 1 inserisco e ogni 0 prelevo
-VET2	DC.B	1,2,3,4		; Vettore 2 -> elementi da inserire
-CODA	DS.W	5		; Coda
-QSTRTR	DS.L	1		; Indirizzo inizio coda
+N	EQU	8
+VET2	DC.W	1,2,3,4		; Vettore 2 -> elementi da inserire
+QSTRT	DS.L	1		; Indirizzo inizio coda
 QEND	DS.L	1		; Indirizzo fine coda
-QSIZE	DC.B	5		; Dimensione coda -> 5 word 
+QSIZE	EQU	14		; Dimensione coda -> 6 word + 1 per posizione qend
 QHEAD	DS.L	1		; Indirizzo testa
 QTAIL	DS.L	1		; Indirizzo coda
 QLENG	DC.B	0		; Elementi in coda
-
-***************************************************************
+*******************************************************************************
 	ORG	$9000
+INS:	MOVEA.L 	QTAIL,A0
+	MOVEA.L 	QEND,A1
+	CMP.L	A0,A1
+	BLE	FUORI
+	MOVE.W	(A3),(A0) 		; Metto l'elemento puntato da A3(vet2 pointer) nella tail della coda (A0)
+	ADD.L	#2,QTAIL
+	ADD.B	#1,QLENG
+	ADDA.L	#2,A3
+	RTS
+*******************************************************************************
+CONS:	MOVEA.L 	QTAIL,A0
+	MOVEA.L 	QHEAD,A1
+	CMP.L	A0,A1
+	BEQ	FUORI
+	MOVE.W	#0,(A1)		; Elimino quello che c'e' in testa
+	MOVE.B	QLENG,D1
+	SUBI.B	#1,D1
+	MOVE.B	D1,QLENG
+	MOVE.L	QHEAD,A4
+	ADDA.L	#2,A4		; Mi posiziono con A4 sulla prossima word	
+SPO:	CMP.W	#0,D1
+	BLE	CLE
+	MOVE.W	(A4),(A1)
+	ADDA.L	#2,A1
+	ADDA.L	#2,A4
+	SUBI.W	#1,D1
+	BRA	SPO
+CLE:	SUBI.L	#2,QTAIL
+	MOVE.L	QTAIL,A0
+	MOVE.W	#0,(A0)		; Pulisce la tail e la decrementa visto lo spostamento dell intera coda verso testa
+	BRA	FUORI
+*******************************************************************************
+FUORI:	RTS
+*******************************************************************************
+START:	MOVE.L	#CODA,QSTRT
+	MOVE.L	#CODA,QEND
+	ADD.L	#QSIZE,QEND
+	MOVE.L	#CODA,QHEAD
+	ADD.L	#2,QHEAD
+	MOVE.L	QHEAD,QTAIL
+	LEA	VET1,A2
+	LEA	VET2,A3
+	CLR.W	D0
+FOR:	CMP.B	#N,D0		; Non utilizzando stack D0,A1 e A2 non devono essere usati se non nel main
+	BGE	LOOP
+		CMP.B	#1,(A2)
+		BNE	SKIP1
+		JSR	INS
+SKIP1:		CMP.B	#0,(A2)
+		BNE	SKIP2
+		JSR	CONS
+SKIP2:		ADDA.L	#1,A2
+		ADD.W	#1,D0
+	BRA	FOR
+*******************************************************************************
+LOOP:	JMP	LOOP
+*******************************************************************************
+	END	START
 

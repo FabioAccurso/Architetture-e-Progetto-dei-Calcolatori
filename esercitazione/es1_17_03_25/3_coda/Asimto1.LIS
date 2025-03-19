@@ -1,17 +1,74 @@
 00008000                                     1  	ORG	$8000
-00008000  01 01 01 00 00 01 00 00            2  VET1	DC.B	1,1,1,0,0,1,0,0	; Vettore 1 -> per ogni 1 inserisco e ogni 0 prelevo
-00008008  01 02 03 04                        3  VET2	DC.B	1,2,3,4		; Vettore 2 -> elementi da inserire
-0000800C                                     4  CODA	DS.W	5		; Coda
-00008016                                     5  QSTRTR	DS.L	1		; Indirizzo inizio coda
-0000801A                                     6  QEND	DS.L	1		; Indirizzo fine coda
-0000801E  05                                 7  QSIZE	DC.B	5		; Dimensione coda -> 5 word 
-00008020                                     8  QHEAD	DS.L	1		; Indirizzo testa
-00008024                                     9  QTAIL	DS.L	1		; Indirizzo coda
-00008028  00                                10  QLENG	DC.B	0		; Elementi in coda
-00008029                                    11  
-00008029                                    12  ***************************************************************
+00008000                                     2  CODA	DS.W	6		; Coda da 6 word
+0000800C  01 01 01 00 00 01 00 00            3  VET1	DC.B	1,1,1,0,0,1,0,0	; Vettore 1 -> per ogni 1 inserisco e ogni 0 prelevo
+00008014  =00000008                          4  N	EQU	8
+00008014  0001 0002 0003 0004                5  VET2	DC.W	1,2,3,4		; Vettore 2 -> elementi da inserire
+0000801C                                     6  QSTRT	DS.L	1		; Indirizzo inizio coda
+00008020                                     7  QEND	DS.L	1		; Indirizzo fine coda
+00008024  =0000000E                          8  QSIZE	EQU	14		; Dimensione coda -> 6 word + 1 per posizione qend
+00008024                                     9  QHEAD	DS.L	1		; Indirizzo testa
+00008028                                    10  QTAIL	DS.L	1		; Indirizzo coda
+0000802C  00                                11  QLENG	DC.B	0		; Elementi in coda
+0000802D                                    12  *******************************************************************************
 00009000                                    13  	ORG	$9000
-00009000                                    14  
+00009000  2079 00008028                     14  INS:	MOVEA.L 	QTAIL,A0
+00009006  2279 00008020                     15  	MOVEA.L 	QEND,A1
+0000900C  B3C8                              16  	CMP.L	A0,A1
+0000900E  6F00 0076                         17  	BLE	FUORI
+00009012  3093                              18  	MOVE.W	(A3),(A0) 		; Metto l'elemento puntato da A3(vet2 pointer) nella tail della coda (A0)
+00009014  54B9 00008028                     19  	ADD.L	#2,QTAIL
+0000901A  5239 0000802C                     20  	ADD.B	#1,QLENG
+00009020  D7FC 00000002                     21  	ADDA.L	#2,A3
+00009026  4E75                              22  	RTS
+00009028                                    23  *******************************************************************************
+00009028  2079 00008028                     24  CONS:	MOVEA.L 	QTAIL,A0
+0000902E  2279 00008024                     25  	MOVEA.L 	QHEAD,A1
+00009034  B3C8                              26  	CMP.L	A0,A1
+00009036  6700 004E                         27  	BEQ	FUORI
+0000903A  32BC 0000                         28  	MOVE.W	#0,(A1)		; Elimino quello che c'e' in testa
+0000903E  1239 0000802C                     29  	MOVE.B	QLENG,D1
+00009044  5301                              30  	SUBI.B	#1,D1
+00009046  13C1 0000802C                     31  	MOVE.B	D1,QLENG
+0000904C  2879 00008024                     32  	MOVE.L	QHEAD,A4
+00009052  D9FC 00000002                     33  	ADDA.L	#2,A4		; Mi posiziono con A4 sulla prossima word	
+00009058  B27C 0000                         34  SPO:	CMP.W	#0,D1
+0000905C  6F00 0014                         35  	BLE	CLE
+00009060  3294                              36  	MOVE.W	(A4),(A1)
+00009062  D3FC 00000002                     37  	ADDA.L	#2,A1
+00009068  D9FC 00000002                     38  	ADDA.L	#2,A4
+0000906E  5341                              39  	SUBI.W	#1,D1
+00009070  60E6                              40  	BRA	SPO
+00009072  55B9 00008028                     41  CLE:	SUBI.L	#2,QTAIL
+00009078  2079 00008028                     42  	MOVE.L	QTAIL,A0
+0000907E  30BC 0000                         43  	MOVE.W	#0,(A0)		; Pulisce la tail e la decrementa visto lo spostamento dell intera coda verso testa
+00009082  6000 0002                         44  	BRA	FUORI
+00009086                                    45  *******************************************************************************
+00009086  4E75                              46  FUORI:	RTS
+00009088                                    47  *******************************************************************************
+00009088  23FC 00008000 0000801C            48  START:	MOVE.L	#CODA,QSTRT
+00009092  23FC 00008000 00008020            49  	MOVE.L	#CODA,QEND
+0000909C  06B9 0000000E 00008020            50  	ADD.L	#QSIZE,QEND
+000090A6  23FC 00008000 00008024            51  	MOVE.L	#CODA,QHEAD
+000090B0  54B9 00008024                     52  	ADD.L	#2,QHEAD
+000090B6  23F9 00008024 00008028            53  	MOVE.L	QHEAD,QTAIL
+000090C0  45F9 0000800C                     54  	LEA	VET1,A2
+000090C6  47F9 00008014                     55  	LEA	VET2,A3
+000090CC  4240                              56  	CLR.W	D0
+000090CE  B03C 0008                         57  FOR:	CMP.B	#N,D0		; Non utilizzando stack D0,A1 e A2 non devono essere usati se non nel main
+000090D2  6C00 0028                         58  	BGE	LOOP
+000090D6  0C12 0001                         59  		CMP.B	#1,(A2)
+000090DA  6600 0008                         60  		BNE	SKIP1
+000090DE  4EB9 00009000                     61  		JSR	INS
+000090E4  0C12 0000                         62  SKIP1:		CMP.B	#0,(A2)
+000090E8  6600 0008                         63  		BNE	SKIP2
+000090EC  4EB9 00009028                     64  		JSR	CONS
+000090F2  D5FC 00000001                     65  SKIP2:		ADDA.L	#1,A2
+000090F8  5240                              66  		ADD.W	#1,D0
+000090FA  60D2                              67  	BRA	FOR
+000090FC                                    68  *******************************************************************************
+000090FC  4EF9 000090FC                     69  LOOP:	JMP	LOOP
+00009102                                    70  *******************************************************************************
+00009102                                    71  	END	START
 
 No errors detected
 No warnings generated
