@@ -1,0 +1,14 @@
+	ORG	$8000
+VET1	DC.B	1,1,1,0,0,1,0,0	; Vettore 1 -> per ogni 1 inserisco e ogni 0 prelevo
+VET2	DC.B	1,2,3,4		; Vettore 2 -> elementi da inserire
+CODA	DS.W	5		; Coda
+QSTRTR	DS.L	1		; Indirizzo inizio coda
+QEND	DS.L	1		; Indirizzo fine coda
+QSIZE	DC.B	5		; Dimensione coda -> 5 word 
+QHEAD	DS.L	1		; Indirizzo testa
+QTAIL	DS.L	1		; Indirizzo coda
+QLENG	DC.B	0		; Elementi in coda
+
+***************************************************************
+	ORG	$9000
+

@@ -1,0 +1,17 @@
+00008000                                     1  	ORG	$8000
+00008000  01 01 01 00 00 01 00 00            2  VET1	DC.B	1,1,1,0,0,1,0,0	; Vettore 1 -> per ogni 1 inserisco e ogni 0 prelevo
+00008008  01 02 03 04                        3  VET2	DC.B	1,2,3,4		; Vettore 2 -> elementi da inserire
+0000800C                                     4  CODA	DS.W	5		; Coda
+00008016                                     5  QSTRTR	DS.L	1		; Indirizzo inizio coda
+0000801A                                     6  QEND	DS.L	1		; Indirizzo fine coda
+0000801E  05                                 7  QSIZE	DC.B	5		; Dimensione coda -> 5 word 
+00008020                                     8  QHEAD	DS.L	1		; Indirizzo testa
+00008024                                     9  QTAIL	DS.L	1		; Indirizzo coda
+00008028  00                                10  QLENG	DC.B	0		; Elementi in coda
+00008029                                    11  
+00008029                                    12  ***************************************************************
+00009000                                    13  	ORG	$9000
+00009000                                    14  
+
+No errors detected
+No warnings generated
