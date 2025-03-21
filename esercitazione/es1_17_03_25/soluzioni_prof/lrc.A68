@@ -1,0 +1,86 @@
+
+		ORG $8000
+* Area contenente il messaggio (2 byte * 4(N) = 8 byte)
+MSG 		DC.W 10,20,30,40
+LRC 		DC.W 0 * DICHIARANDO LRC SUBITO DOPO MSG E' SEMPRE APPESO AL MESSAGGIO( PS, Dichiaratro a word per mantenere allineamento con parola successiva) ! 
+CMP_RED 	DC.B 0 * Uscita della funzione COMPARE_LRC
+* Numbero di word ( 16 bit) presenti nella messaggio da controllare
+N EQU 4 			
+	ORG $8100
+* Stack atteso dalla funzione:
+* D0-D3/A0-A1 / 4*4 = 32 byte       -24
+* Vecchio stack pointer (4 byte)    -28
+* Indirizzo di ritorno  4 byte      -32
+* MSG address                       -36
+* LRC address res                 -40
+COMPUTE_LRC	LINK  A6,#0 * Aggiorno lo SP e salvo il vecchio sullo stack
+                		MOVEM.L D0-D3/A0-A1,-(SP) * salvo i registri che la procedura usa sullo stack
+                		MOVEA.L  32(SP),A0 * Carico il puntatore al messaggio
+                		MOVEA.L 36(SP),A1 * Carico il puntatore al risultato
+	    		MOVE.W  #N,D0	* Carico il numero di word da confrontare.
+			MULU     #2,D0	
+                		EOR.W   D1,D1 * Inizializzo il concatore a 0
+                		EOR.W   D2,D2 * Inizializzo il risultato a 0
+LRC_LOOP        	CMP.W   D1,D0 * Ciclo loop
+                		BEQ     LRC_PROC_EXIT * Raggiunto massimo numero di iterazioni ( N * 2)
+                		MOVE.B (A0)+,D3
+			EOR.B   D3,D2 * Calcolo il LRC
+                		ADD.B   #1,D1 * Aggiorno il contatore
+                		BRA LRC_LOOP
+LRC_PROC_EXIT   	MOVE.B  D2,(A1) * Salvo il risultato
+                		MOVEM.L   (SP)+,D0-D3/A0-A1, * Ripristino i registri che ho utilizzato
+                		UNLK 		A6           * Ripristino il vecchio SP
+                		RTS
+
+	ORG $8200
+* Stack atteso dalla funzione:
+* D0-D3/A0-A1 / 4*4 = 32 byte       -24
+* Vecchio stack pointer (4 byte)    -28
+* Indirizzo di ritorno  4 byte      -32
+* MSG+ LRC                      -36
+* LRC address res             -40
+* Questa funzione inserisce in LRC ADDR RES 0 se il messaggio è integro, altrimenti inserisce un valore > 0 se non è integro.
+COMPARE_LRC	LINK  A6,#0 * Aggiorno lo SP e salvo il vecchio sullo stack
+                		MOVEM.L D0-D3/A0-A1,-(SP) * salvo i registri che la procedura usa sullo stack
+                		MOVEA.L  32(SP),A0 * Carico il puntatore al messaggio con ultimo byte LRC appeso.
+                		MOVEA.L 36(SP),A1 * Carico il puntatore alla variabile di uscita della funzione
+	    		MOVE.W  #N,D0	* Carico il numero di word da confrontare.
+			MULU     #2,D0	
+                		EOR.W   D1,D1 * Inizializzo il concatore a 0
+                		EOR.W   D2,D2 * Inizializzo il risultato a 0
+CMP_LOOP        	CMP.W   D1,D0 * Ciclo loop
+                		BEQ     CMP_PROC_EXIT * Raggiunto massimo numero di iterazioni ( N * 2)
+                		MOVE.B (A0)+,D3
+			EOR.B   D3,D2 * Calcolo il LRC
+                		ADD.B   #1,D1 * Aggiorno il contatore
+                		BRA CMP_LOOP
+CMP_PROC_EXIT   	MOVE.B (A0),D3 * Alla fine dei cicli A0 punta all'ultimo byte del messaggio, ossia LRC appeso.
+			EOR.B  D3,D2 * Confronto i due LRC
+			MOVE.B D2,(A1) * Salvo il confronto tra la XOR di LRC calcolato e quello appeso al MSG
+                		MOVEM.L   (SP)+,D0-D3/A0-A1, * Ripristino i registri che ho utilizzato
+                		UNLK 		A6           * Ripristino il vecchio SP
+                		RTS
+
+		ORG $8300
+
+START 			PEA LRC * Prepariamo lo stack per la chiamata a funzione
+                		PEA MSG
+                		JSR COMPUTE_LRC
+			ADDA.L #8,SP * Rimuovi MSG ed LRC da stack
+			PEA CMP_RED   * Prepara stack per confronto
+			PEA MSG
+			JSR COMPARE_LRC * Compara i due LRC
+			MOVE.B CMP_RED,D0 * Visualizza in D0 il risultato, 0 in questo caso.
+			MOVEA.L #MSG,A0 * Salva indirizzo del messaggio in A0
+                		MOVE.B #1,(A0) * altera il primo byte 
+			JSR COMPARE_LRC * Richiama la funzione, lo stack è lo stesso
+			MOVE.B CMP_RED,D0 * Visualizza il risultato in D0, questa volta diverso da 0
+LOOP            		JMP LOOP     
+               		END START
+
+
+
+
+
+
+

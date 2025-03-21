@@ -1,0 +1,63 @@
+
+		ORG $8000
+* Area contenente il messaggio (2 byte * 4(N) = 8 byte)
+STARTING_AREA 	EQU $8200 * Area in cui andare a ricercare il codice.
+ENDING_AREA 	EQU $8300  * Indirizzo entro cui stopparsi.
+TO_SEARCH 		EQU $3803   $ * Codice dell'istruzione da andare a ricercare MOVE D3,D4 
+NRO_ITER		DC.W	0  * Numero di iterazioni in word entro cui si � completata la ricerca. 
+FOUND		DC.W	0 * Booleano per indicare una istruzione trovata. 		
+
+	ORG $8100
+* Stack atteso dalla funzione:
+* A0-A3/D0-D3 / 4*4 = 32 byte       	-32
+* Vecchio stack pointer (4 byte)    	-36
+* Indirizzo di ritorno  4 byte		-40
+* Starting Area (indirizzo area di memoria in cui andare a cercare istruzione) 	-44
+* Ending Area (Indirizzo entro cui completare la ricerca)				-48
+* Nro. Iterations (Numero di iterazioni dopo il quale si � interrotta la ricerca)	- 52
+* Found ( Booleano che indica se variabile sia stata trovata o meno) 		- 56
+INSTR_LOOKUP	LINK  A6,#0 * Aggiorno lo SP e salvo il vecchio sullo stack
+                		MOVEM.L D0-D3/A0-A3,-(SP) * salvo i registri che la procedura usa sullo stack
+                		MOVEA.L  40(SP),A0 * Carico il puntatore alla starting area
+			MOVEA.L  44(SP),A1 * Carico il puntatore alla ending area
+			MOVE.W    #TO_SEARCH,D0 * Carico istruzione da ricercare. 
+			MOVEA.L   48(SP),A2 * Carico il puntatore al numero di iterazioni
+			MOVEA.L   52(SP),A3 * Carico il puntatore a found
+                		EOR.W    D2,D2      * D2 contiene il numero di istruzioni comparate, lo setto a 0.
+                		EOR.W   D1,D1	* Setta a 0 la variabile found
+SRC_LOOP        	CMP.L  A0,A1 * Controlla se si � raggiunto indirizzo limite
+			BEQ	   LOOKUP_EXIT
+			ADDI.W   #1,D2 	* Incrementa il contatore di istruzioni controllate.
+			MOVE.W	(A0)+,D3
+			CMP.W 	   D3,D0 	* Compara Istruzione con quella da ricercare
+			BNE 	  SRC_LOOP 	* Ovemai istruzione non sia quella ricercata allora reitera.
+			MOVE.W #1,D1	* In questo blocco di codice ci si rientra solo se le due istruzioni sono uguali
+				
+LOOKUP_EXIT   	MOVE.W D1,(A3) * Salva found
+			MOVE.W D2,(A2) * Salva il numero di iterazioni 
+                		MOVEM.L   (SP)+,D0-D3/A0-A3, * Ripristino i registri che ho utilizzato
+                		UNLK 		A6           * Ripristino il vecchio SP
+                		RTS
+
+
+		ORG $8200
+
+START 			PEA FOUND
+			PEA NRO_ITER
+			MOVE.L #ENDING_AREA,-(SP)
+			MOVE.L #STARTING_AREA,-(SP)
+			JSR INSTR_LOOKUP
+			ADDA.L #16,SP
+			MOVE.W NRO_ITER,D0
+			MOVE.W FOUND,D1
+			MOVE.W D3,D4
+LOOP            		JMP LOOP     
+               		END START
+
+
+
+
+
+
+
+
