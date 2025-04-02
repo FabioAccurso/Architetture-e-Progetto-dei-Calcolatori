@@ -1,0 +1,171 @@
+	ORG	$8000
+MSG	DS.B	256
+IDX	DC.W	0			;indice per scorrere MSG (semanticamente indica nel nostro caso
+*					;l'ultimo carattere inviato dalla PIA
+	
+	ORG    $8200
+PIADA	EQU    $2004			;indirizzo di PIA-A dato, usato in input
+PIACA	EQU    $2005			;indirizzo di PIA-A stato/controllo
+PIADB	EQU    $2006			;indirizzo di PIA-B dato, usato in output 
+PIACB	EQU    $2007			;indirizzo di PIA-B controllo
+TERD	EQU    $2000    		;indirizzo di TERMINAL registro dato
+TERC	EQU    $2001			;indirizzo di TERMINAL registro stato/controllo
+
+MAIN 	JSR    	DVAIN				;inizializza PIA porto A
+	JSR    	DVBOUT			;inizializza PIA porto B
+	JSR   	DVTER				;inizializza terminal
+	MOVE.W	SR,D0			;legge il registro di stato
+	ANDI.W	#$D8FF,D0 		;maschera per reg stato (stato utente, int abilitati)
+	MOVE.W	D0,SR			;pone liv int a 000
+LOOP  	JMP LOOP				;ciclo caldo dove il processore attende interrupt		
+	
+
+
+DVAIN	MOVE.B	#0,PIACA		;mette 0 nel registro controllo cosi'` al prossimo accesso a PIADA (indirizzo pari)
+*						;selezionerà il registro direzione del porto A
+	MOVE.B	#$00,PIADA		;accede a DRA e pone DRA=0 : le linee di A sono linee di input	
+	MOVE.B	#%00100101,PIACA  	;imposta il registro di controllo come indicato sopra, ponendo IRQA1=1 e IRQA2=1
+*						;i bit CRA7 e CRA6 sono a sola lettura	
+    	RTS
+
+
+*Interrupt abilititate su variazione alto-basso di CB1
+DVBOUT	MOVE.B	#0,PIACB		;seleziona il registro direzione di PIA porto B 
+		MOVE.B	#$FF,PIADB	  	;accede a DRB e pone DRA=1 : le linee di B sono linee di output	
+		MOVE.B	#%00100101,PIACB   	;imposta il registro di controllo come indicato sopra
+		RTS
+
+  		
+DVTER		MOVE.B	#$3B,TERC		;seleziona indirizzo stato/controllo
+		RTS			 
+
+*****************************************************************************************************************************************************
+	ORG		$8500			;ricevi da tastiera
+INT1	MOVE.L	A0,-(A7)		;push di A0,A1,A2,D0,D1 in stack supervisor
+	MOVE.L	A1,-(A7)
+	MOVE.L	A3,-(A7)
+	MOVE.L	D0,-(A7)
+	MOVE.L	D1,-(A7)
+
+	MOVEA.L	#TERD,A0
+	MOVEA.L	#PIADB,A1
+	MOVEA.L	#MSG,A3
+
+*Carichiamo tutti i caratteri del buffer del terminal in memoria -> questa cosa sarebbe da migliorare (!)
+INPUT	MOVE.B	(A0),D0			;acquisisci dato da terminal
+	MOVE.B	D0,(A3)+
+	CMP.B   	#13,D0			;Se il carattere ricevuto è ENTER	
+	BNE     	INPUT			;termina altrimenti prossimo carattere
+
+*Trasferisci il PRIMO carattere letto alla PIA-B con handshaking
+        	MOVE.B  (A1),D1         			;lettura fittizia 
+       	MOVE.B  MSG,(A1)         		;invio primo carattere		
+
+*Fine ISR
+	MOVE.L 	(A7)+,D1		;ripristino di D0,D1,A2,A1,A0
+	MOVE.L	(A7)+,D0
+	MOVE.L	(A7)+,A3
+	MOVE.L	(A7)+,A1
+	MOVE.L	(A7)+,A0
+	RTE
+
+*****************************************************************************************************************************************************
+	ORG		$8600		
+INT2	ANDI.B		#%11101101,TERC	;disabilitiamo tastiera ed interruzione da pressione di ENTER
+	MOVE.L	A0,-(A7)		;push di A0,A1,A2,D1 in stack supervisore
+	MOVE.L	A1,-(A7)
+	MOVE.L	A2,-(A7)
+	MOVE.L	A3,-(A7)
+	MOVE.L	D1,-(A7)
+	MOVE.L	D2,-(A7)
+	MOVEA.L	#TERD,A0
+	MOVEA.L	#PIADB,A1
+	MOVEA.L	#MSG,A3
+	MOVE.B	#255,D2		;#caratteri da trasferire
+	
+*Copia intero messaggio in memoria
+
+SWAP	MOVE.B	(A0),(A3)+		;acquisisci dato da terminal
+	DBRA    	D2,SWAP		;contatore di bit inviati
+
+*Trasferisci il PRIMO carattere letto alla PIA-B con handshaking
+	MOVE.B  	(A1),D1       		;lettura fittizia  	
+	MOVE.B  	MSG,(A1)         		;scrivo il carattere sulla PIA
+
+	MOVE.L	(A7)+,D2		;ripristino di D1,A2,A1,A0
+	MOVE.L 	(A7)+,D1
+	MOVE.L	(A7)+,A3
+	MOVE.L  	(A7)+,A1
+	MOVE.L  	(A7)+,A0
+	RTE
+
+*******************************************************************************************************
+*La pia-A ha ricevuto un carattere dalla pia-B partner, interrompe il processore che
+*con la ISR riceve il carattere e lo trasmette direttamente al proprio TERMINAL per la visualiz-
+*zazione.
+*ISR a $8700 associata all' interrupt di liv. 3  #vect 27  mappato a $6C della ROM
+********************************************************************************************************	
+	
+	ORG $8700		
+INT3    ANDI.B	#%11101101,TERC	;disabilita: tastiera,interruzioni su enter		 
+	MOVE.L  A1,-(A7)		;salvataggio registri
+	MOVE.L  A0,-(A7)
+	MOVE.L  D0,-(A7)
+
+	MOVEA.L  #TERD,A0		;inizializzazione indirizzi device
+	MOVEA.L  #PIADA,A1
+	
+	MOVE.B 	(A1),(A0)	;acquisisce il carattere e lo trasferisce a Terminal
+*					;la lettura da PRA fa abbassare CRA7 e CA2 => nell'altro sistema si abbassa CB1
+*					;ciò corrisponde all'attivazione di CRB7 che funge da DATA ACKNOWLEDGE
+	
+	MOVE.L  (A7)+,D0		;ripristino registri 
+	MOVE.L  (A7)+,A0
+	MOVE.L  (A7)+,A1
+	
+	ORI.B	#$12,TERC		;riabilita tastiera e interruzioni su enter 
+	RTE
+
+*****************************************************************************************************************************************************
+**ISR scatenata da IRQB (port B PIA)
+
+	ORG		$8900
+INT4	MOVE.L	D0,-(A7)
+	MOVE.L	D1,-(A7)
+	MOVE.L	A0,-(A7)
+	MOVE.L	A1,-(A7)
+
+	MOVEA.L	#PIADB,A1
+	MOVEA.L	#MSG,A0
+*Controlliamo se l'ultimo carattere inviato era ENTER o il 256esimo carattere del buffer
+	MOVE.W	IDX,D0
+	CMPI.W	#255,D0
+	BEQ		EOM
+	MOVE.W	IDX,D0
+	MOVE.B	(A0,D0),D1
+	CMPI.B	#13,D1
+	BEQ		EOM
+
+*Inviamo il carattere alla PIA (incrementiamo l'indice contenuto in D0)
+	ADDI.W	#1,D0
+	MOVE.B	(A1),D1			;lettura fittizia
+	MOVE.B	(A0,D0),(A1)
+	MOVE.W	D0,IDX			;aggiorniamo l'indice in memoria
+	BRA		FIN
+
+*Caso EOM (End of Message), riabilitiamo tastiera e interrupt, pulisce buffer, pulisce video
+EOM	ORI.B		#%00011110,TERC
+	MOVE.B	#$3B,TERC
+	MOVE.W	#0,IDX
+
+*Fine ISR
+FIN	MOVE.L	(A7)+,A1
+	MOVE.L	(A7)+,A0
+	MOVE.L	(A7)+,D1
+	MOVE.L	(A7)+,D0
+	RTE
+
+	END		MAIN
+
+
+

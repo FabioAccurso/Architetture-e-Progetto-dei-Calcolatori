@@ -1,0 +1,166 @@
+00008000                                     1  	ORG	$8000
+00008000                                     2  MSG	DS.B	256
+00008100  0000                               3  IDX	DC.W	0			;indice per scorrere MSG (semanticamente indica nel nostro caso
+00008102                                     4  *					;l'ultimo carattere inviato dalla PIA
+00008102                                     5  	
+00008200                                     6  	ORG    $8200
+00008200  =00002004                          7  PIADA	EQU    $2004			;indirizzo di PIA-A dato, usato in input
+00008200  =00002005                          8  PIACA	EQU    $2005			;indirizzo di PIA-A stato/controllo
+00008200  =00002006                          9  PIADB	EQU    $2006			;indirizzo di PIA-B dato, usato in output 
+00008200  =00002007                         10  PIACB	EQU    $2007			;indirizzo di PIA-B controllo
+00008200  =00002000                         11  TERD	EQU    $2000    		;indirizzo di TERMINAL registro dato
+00008200  =00002001                         12  TERC	EQU    $2001			;indirizzo di TERMINAL registro stato/controllo
+00008200                                    13  
+00008200  4EB9 00008220                     14  MAIN 	JSR    	DVAIN				;inizializza PIA porto A
+00008206  4EB9 00008234                     15  	JSR    	DVBOUT			;inizializza PIA porto B
+0000820C  4EB9 00008248                     16  	JSR   	DVTER				;inizializza terminal
+00008212  40C0                              17  	MOVE.W	SR,D0			;legge il registro di stato
+00008214  0240 D8FF                         18  	ANDI.W	#$D8FF,D0 		;maschera per reg stato (stato utente, int abilitati)
+00008218  46C0                              19  	MOVE.W	D0,SR			;pone liv int a 000
+0000821A  4EF9 0000821A                     20  LOOP  	JMP LOOP				;ciclo caldo dove il processore attende interrupt		
+00008220                                    21  	
+00008220                                    22  
+00008220                                    23  
+00008220  11FC 0000 2005                    24  DVAIN	MOVE.B	#0,PIACA		;mette 0 nel registro controllo così al prossimo accesso a PIADA (indirizzo pari)
+00008226                                    25  *						;selezionerà il registro direzione del porto A
+00008226  11FC 0000 2004                    26  	MOVE.B	#$00,PIADA		;accede a DRA e pone DRA=0 : le linee di A sono linee di input	
+0000822C  11FC 0025 2005                    27  	MOVE.B	#%00100101,PIACA  	;imposta il registro di controllo come indicato sopra, ponendo IRQA1=1 e IRQA2=1
+00008232                                    28  *						;i bit CRA7 e CRA6 sono a sola lettura	
+00008232  4E75                              29      	RTS
+00008234                                    30  
+00008234                                    31  
+00008234                                    32  *Interrupt abilititate su variazione alto-basso di CB1
+00008234  11FC 0000 2007                    33  DVBOUT	MOVE.B	#0,PIACB		;seleziona il registro direzione di PIA porto B 
+0000823A  11FC 00FF 2006                    34  	MOVE.B	#$FF,PIADB	  	;accede a DRB e pone DRA=1 : le linee di B sono linee di output	
+00008240  11FC 0025 2007                    35  	MOVE.B	#%00100101,PIACB   	;imposta il registro di controllo come indicato sopra
+00008246  4E75                              36  	RTS
+00008248                                    37  
+00008248                                    38    		
+00008248  11FC 003B 2001                    39  DVTER	MOVE.B	#$3B,TERC		;seleziona indirizzo stato/controllo
+0000824E  4E75                              40  	RTS			 
+00008250                                    41  
+00008250                                    42  
+00008500                                    43  	ORG		$8500			;ricevi da tastiera
+00008500  2F08                              44  INT1	MOVE.L	A0,-(A7)		;push di A0,A1,A2,D0,D1 in stack supervisor
+00008502  2F09                              45  	MOVE.L	A1,-(A7)
+00008504  2F0B                              46  	MOVE.L	A3,-(A7)
+00008506  2F00                              47  	MOVE.L	D0,-(A7)
+00008508  2F01                              48  	MOVE.L	D1,-(A7)
+0000850A  207C 00002000                     49  	MOVEA.L	#TERD,A0
+00008510  227C 00002006                     50  	MOVEA.L	#PIADB,A1
+00008516  267C 00008000                     51  	MOVEA.L	#MSG,A3
+0000851C                                    52  *Carichiamo tutti i caratteri del buffer del terminal in memoria
+0000851C  1010                              53  INPUT	MOVE.B	(A0),D0			;acquisisci dato da terminal
+0000851E  16C0                              54  	MOVE.B	D0,(A3)+
+00008520  B03C 000D                         55  	CMP.B   	#13,D0			;Se il carattere ricevuto è ENTER	
+00008524  66F6                              56  	BNE     	INPUT			;termina altrimenti prossimo carattere
+00008526                                    57  
+00008526                                    58  *Trasferisci il PRIMO carattere letto alla PIA-B con handshaking
+00008526  1211                              59          	MOVE.B  (A1),D1         			;lettura fittizia 
+00008528  12B9 00008000                     60         	MOVE.B  MSG,(A1)         		;invio primo carattere		
+0000852E                                    61  *Fine ISR
+0000852E  221F                              62  	MOVE.L 	(A7)+,D1		;ripristino di D0,D1,A2,A1,A0
+00008530  201F                              63  	MOVE.L	(A7)+,D0
+00008532  265F                              64  	MOVE.L	(A7)+,A3
+00008534  225F                              65  	MOVE.L	(A7)+,A1
+00008536  205F                              66  	MOVE.L	(A7)+,A0
+00008538  4E73                              67  	RTE
+0000853A                                    68  
+00008600                                    69  	ORG		$8600		
+00008600  0238 00ED 2001                    70  INT2	ANDI.B		#%11101101,TERC	;disabilitiamo tastiera ed interruzione da pressione di ENTER
+00008606  2F08                              71  	MOVE.L	A0,-(A7)		;push di A0,A1,A2,D1 in stack supervisore
+00008608  2F09                              72  	MOVE.L	A1,-(A7)
+0000860A  2F0A                              73  	MOVE.L	A2,-(A7)
+0000860C  2F0B                              74  	MOVE.L	A3,-(A7)
+0000860E  2F01                              75  	MOVE.L	D1,-(A7)
+00008610  2F02                              76  	MOVE.L	D2,-(A7)
+00008612  207C 00002000                     77  	MOVEA.L	#TERD,A0
+00008618  227C 00002006                     78  	MOVEA.L	#PIADB,A1
+0000861E  267C 00008000                     79  	MOVEA.L	#MSG,A3
+00008624  143C 00FF                         80  	MOVE.B	#255,D2		;#caratteri da trasferire
+00008628                                    81  	
+00008628                                    82  *Copia intero messaggio in memoria
+00008628                                    83  
+00008628  16D0                              84  SWAP	MOVE.B	(A0),(A3)+		;acquisisci dato da terminal
+0000862A  51CA FFFC                         85  	DBRA    	D2,SWAP		;contatore di bit inviati
+0000862E                                    86  
+0000862E                                    87  *Trasferisci il PRIMO carattere letto alla PIA-B con handshaking
+0000862E  1211                              88  	MOVE.B  	(A1),D1       		;lettura fittizia  	
+00008630  12B9 00008000                     89  	MOVE.B  	MSG,(A1)         		;scrivo il carattere sulla PIA
+00008636                                    90  
+00008636  241F                              91  	MOVE.L	(A7)+,D2		;ripristino di D1,A2,A1,A0
+00008638  221F                              92  	MOVE.L 	(A7)+,D1
+0000863A  265F                              93  	MOVE.L	(A7)+,A3
+0000863C  225F                              94  	MOVE.L  	(A7)+,A1
+0000863E  205F                              95  	MOVE.L  	(A7)+,A0
+00008640  4E73                              96  	RTE
+00008642                                    97  
+00008642                                    98  *******************************************************************************************************
+00008642                                    99  *La pia-A ha ricevuto un carattere dalla pia-B partner, interrompe il processore che
+00008642                                   100  *con la ISR riceve il carattere e lo trasmette direttamente al proprio TERMINAL per la visualiz-
+00008642                                   101  *zazione.
+00008642                                   102  *ISR a $8700 associata all' interrupt di liv. 3  #vect 27  mappato a $6C della ROM
+00008642                                   103  ********************************************************************************************************	
+00008642                                   104  	
+00008700                                   105  	ORG $8700		
+00008700  0238 00ED 2001                   106  INT3    ANDI.B	#%11101101,TERC	;disabilita: tastiera,interruzioni su enter		 
+00008706  2F09                             107  	MOVE.L  A1,-(A7)		;salvataggio registri
+00008708  2F08                             108  	MOVE.L  A0,-(A7)
+0000870A  2F00                             109  	MOVE.L  D0,-(A7)
+0000870C                                   110  
+0000870C  207C 00002000                    111  	MOVEA.L  #TERD,A0		;inizializzazione indirizzi device
+00008712  227C 00002004                    112  	MOVEA.L  #PIADA,A1
+00008718                                   113  	
+00008718  1091                             114  	MOVE.B 	(A1),(A0)	;acquisisce il carattere e lo trasferisce a Terminal
+0000871A                                   115  *					;la lettura da PRA fa abbassare CRA7 e CA2 => nell'altro sistema si abbassa CB1
+0000871A                                   116  *					;ciò corrisponde all'attivazione di CRB7 che funge da DATA ACKNOWLEDGE
+0000871A                                   117  	
+0000871A  201F                             118  	MOVE.L  (A7)+,D0		;ripristino registri 
+0000871C  205F                             119  	MOVE.L  (A7)+,A0
+0000871E  225F                             120  	MOVE.L  (A7)+,A1
+00008720                                   121  	
+00008720  0038 0012 2001                   122  	ORI.B	#$12,TERC		;riabilita tastiera e interruzioni su enter 
+00008726  4E73                             123  	RTE
+00008728                                   124  
+00008728                                   125  **ISR scatenata da IRQB (port B PIA)
+00008728                                   126  
+00008900                                   127  	ORG		$8900
+00008900  2F00                             128  INT4	MOVE.L	D0,-(A7)
+00008902  2F01                             129  	MOVE.L	D1,-(A7)
+00008904  2F08                             130  	MOVE.L	A0,-(A7)
+00008906  2F09                             131  	MOVE.L	A1,-(A7)
+00008908                                   132  
+00008908  227C 00002006                    133  	MOVEA.L	#PIADB,A1
+0000890E  207C 00008000                    134  	MOVEA.L	#MSG,A0
+00008914                                   135  *Controlliamo se l'ultimo carattere inviato era ENTER o il 256esimo carattere del buffer
+00008914  3039 00008100                    136  	MOVE.W	IDX,D0
+0000891A  0C40 00FF                        137  	CMPI.W	#255,D0
+0000891E  6700 0026                        138  	BEQ		EOM
+00008922  3039 00008100                    139  	MOVE.W	IDX,D0
+00008928  1230 0000                        140  	MOVE.B	(A0,D0),D1
+0000892C  0C01 000D                        141  	CMPI.B	#13,D1
+00008930  6700 0014                        142  	BEQ		EOM
+00008934                                   143  
+00008934                                   144  *Inviamo il carattere alla PIA (incrementiamo l'indice contenuto in D0)
+00008934  5240                             145  	ADDI.W	#1,D0
+00008936  1211                             146  	MOVE.B	(A1),D1			;lettura fittizia
+00008938  12B0 0000                        147  	MOVE.B	(A0,D0),(A1)
+0000893C  33C0 00008100                    148  	MOVE.W	D0,IDX			;aggiorniamo l'indice in memoria
+00008942  6000 0016                        149  	BRA		FIN
+00008946                                   150  
+00008946                                   151  *Caso EOM (End of Message), riabilitiamo tastiera e interrupt, pulisce buffer, pulisce video
+00008946  0038 001E 2001                   152  EOM	ORI.B		#%00011110,TERC
+0000894C  11FC 003B 2001                   153  	MOVE.B	#$3B,TERC
+00008952  33FC 0000 00008100               154  	MOVE.W	#0,IDX
+0000895A                                   155  
+0000895A                                   156  *Fine ISR
+0000895A  225F                             157  FIN	MOVE.L	(A7)+,A1
+0000895C  205F                             158  	MOVE.L	(A7)+,A0
+0000895E  221F                             159  	MOVE.L	(A7)+,D1
+00008960  201F                             160  	MOVE.L	(A7)+,D0
+00008962  4E73                             161  	RTE
+00008964                                   162  
+00008964                                   163  	END		MAIN
+
+No errors detected
+No warnings generated
