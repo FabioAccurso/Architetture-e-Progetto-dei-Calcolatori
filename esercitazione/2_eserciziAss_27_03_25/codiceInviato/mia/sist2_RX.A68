@@ -1,0 +1,60 @@
+**************AREA DATI******************************************
+	ORG	$8000
+RIS		DS.W		1
+INDX		DC.W		0		;Conta le word ricevute.
+
+PIACA		EQU		$2005
+PIADA		EQU		$2004
+ROUT		EQU		$8100
+*********************************************************************
+	ORG	$8200
+MAIN		JSR	DVAIN
+		MOVE.W	SR,D0
+		ANDI.W	#$D8FF,D0	;<- passo a stato utente e abilito interruzioni
+		MOVE.W	D0,SR
+
+*************************************************************************
+LOOP	JMP	LOOP
+**************************************************************************
+DVAIN		MOVE.B	#0,PIACA
+		MOVE.B	#$00,PIADA
+		MOVE.B	#%00100101,PIACA
+		RTS
+**************************************************************************
+ESE	MOVEA.L	#ROUT,A3	
+	JSR	(A3)
+	JMP 	LOOP
+
+*********************************************************************************************************************
+* 	Interruzione che riceve una word e la salva in memoria. Se riceve RTS lo salva e poi esegue codice
+**********************************************************************************************************************
+	ORG	$8500
+INT2	MOVE.L	A0,-(A7)
+	MOVE.L	A1,-(A7)
+	MOVE.L	A2,-(A7)
+	MOVE.L	D0,-(A7)
+
+	MOVE.L	#$8100,A1
+	MOVEA.L	#PIADA,A0
+	MOVEA.L	#INDX,A2
+	MOVE.W	(A2),D0
+
+	MOVE.B	(A0),(A1,D0)
+
+	CMP.B		#$75,(A1,D0)
+	BEQ	ESE
+
+	ADD.W		#1,D0
+	MOVE.W	D0,(A2)
+
+	MOVE.L	(A7)+,D0
+	MOVE.L	(A7)+,A2
+	MOVE.L	(A7)+,A1
+	MOVE.L	(A7)+,A0
+
+	RTE
+***************************************************************************
+	END	MAIN
+
+
+

@@ -1,0 +1,85 @@
+************** AREA DATI ******************************************
+	ORG	$8000
+RIS		DS.W		1
+INDX		DC.W		1	;Conta le word gia inviate. Parte da 1 perchè la prima viene inviata nel main
+
+PIACB		EQU		$2007
+PIADB		EQU 		$2006
+*********************************************************************
+*	 Algoritmo da trasmettere al sistema B 
+*********************************************************************
+	ORG	$8100
+SUM	MOVE.L	D0,-(A7)
+	MOVE.L	D1,-(A7)
+	MOVE.L	A0,-(A7)
+
+	MOVE.L	#RIS,A0
+	MOVE.W	#1,D0
+	MOVE.W	#2,D1
+	ADD.W		D0,D1
+	MOVE.W	D1,(A0)
+
+	MOVE.L	(A7)+,A0
+	MOVE.L	(A7)+,D1
+	MOVE.L	(A7)+,D0
+	
+	RTS	
+*************************************************************************	
+	ORG	$8200
+MAIN		JSR	DVBOUT
+
+		MOVE.W	SR,D0
+		ANDI.W	#$D8FF,D0	;<- passo a stato utente e abilito interruzioni
+		MOVE.W	D0,SR
+
+		MOVEA.L	#PIADB,A1
+		MOVE.L	#$8100,A0
+
+		MOVE.B	(A1),D0		;Lettura fittizia
+		MOVE.B	(A0),(A1)	;Scrivo su registro dato della PIA B l'istruzione da inviare
+
+*************************************************************************
+LOOP	JMP	LOOP
+**************************************************************************
+DVBOUT	MOVE.B	#0,PIACB
+		MOVE.B	#$FF,PIADB
+		MOVE.B	#%00100101,PIACB
+		RTS
+*******************************************************************************************************
+* 	Interruzione che controlla se è stato inviato op code di RTS (4E75). Se no invia prossima word
+*******************************************************************************************************
+	ORG	$8600
+INT1	MOVE.L	A0,-(A7)
+	MOVE.L	A1,-(A7)
+	MOVE.L	A2,-(A7)
+	MOVE.L	D0,-(A7)
+	MOVE.L	D1,-(A7)
+
+	MOVE.L	#$8100,A0
+	MOVEA.L	#PIADB,A1
+	MOVEA.L	#INDX,A2
+
+	MOVE.B	(A1),D0		;Lettura fittizia	ma utile al confronto
+
+	CMP.B		#$75,D0
+	BEQ	EOM
+	MOVE.W	(A2),D1
+	MOVE.B	(A0,D1),(A1)	;Scrivo su dato PIA B la prossima istruzione
+
+
+	ADD.W		#1,D1
+	MOVE.W	D1,(A2)
+
+EOM	MOVE.L	(A7)+,D1
+	MOVE.L	(A7)+,D0
+	MOVE.L	(A7)+,A2
+	MOVE.L	(A7)+,A1
+	MOVE.L	(A7)+,A0
+	
+	RTE
+
+**************************************************************************
+	END	MAIN
+
+
+

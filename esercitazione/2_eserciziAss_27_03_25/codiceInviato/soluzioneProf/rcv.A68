@@ -1,0 +1,126 @@
+* Questo e' il ricevitore della rpc, si limita a settare la periferica PIA ed aspetta di ricevere un carattere, che fa normalmente tramite una ISR.
+* Alla ricezione di un carattere va a controllare se sono due i caratteri ricevuti , in caso affermativo allora controlla l'opcode, qualora sia quello di RTS setta un flag che porta all'esecuzione della subroutine
+
+* Iniziamo con il mettere i dati
+	ORG $8000
+
+*Contatore messaggi ricevuti
+COUNTER_MEX	DS.W	1
+* Contatore utile per i byte
+CNTR_BYTE	DS.W	1
+
+* Locazioni dei registri del porto A
+PIADA			EQU	$2004
+PIACA			EQU	$2005
+PIACFGA		EQU	%00100101	* Configurazione del porto A
+PIADIRA		EQU	$00
+RTS_OPC		EQU	$4E75
+ROUTINE_ADDR	EQU	$9000		* Indirizzo in cui inizia la routine di  
+
+
+	
+* Inizio dell'area codice
+	ORG 	$8100
+* Procedura che inizializza la periferica
+PAINIT		MOVE.B	#0,PIACA		* Metti 0 nel registro di controllo, in questo modo si hanno interruzioni disabilitate e posso scrivere nel registro direzione
+		MOVE.B	#PIADIRA,PIADA	* Settalo come input
+		MOVE.B	#PIACFGA,PIACA	* Infine setta la configurazione ed escitene
+		RTS
+	ORG	$8200	
+*****************************************************************
+*	Algoritmo
+*		#define PROCEDURE_LOCATION	9000
+*		void *	(fun_ptr)();	
+*		unsigned char counter_mex;
+*		unsigned char counter_byte;
+*		unsigned int to_exec;
+*		int main(){
+*			counter_mex=0;
+*			counter_byte=0;
+*			fun_ptr=PROCEDURE_LOCATION;
+*			*SR &= 0xD8FF;
+*			to_exec=0;
+*			while(1){
+*				if( to_exec){
+*					(*fun_ptr)();
+*					to_exec=0;
+*				}
+*			}
+*		}
+*
+*	void __attribute__((section(.addrISR3))) ISR3(){
+*		unsigned char* helper_ptr=PROCEDURE_LOCATION,data_ptr=2004;		
+*		helper_ptr+=counter_mex;
+*		*helper_ptr=*data_ptr; * leggi il dato
+*		counter_mex++; 	 * Aggiorno i messaggi ricevuti
+*		counter_byte++;
+*		if(counter_byte==2){
+*			counter_byte=0;	
+*			if(*helper_ptr==RTS_OPC[1] && *(helper_ptr-1)==RTS_OPC[0]){
+*				counter_mex=0;	
+*				to_exec=1;
+*			}
+*		}
+*	}
+*
+******************************************************************
+MAIN		JSR	PAINIT	 			* Inizializzo la periferica
+		MOVE.W	#0,COUNTER_MEX	* inizializzo i contatori
+		MOVE.W	#0,COUNTER_BYTE
+		MOVEA.L	#ROUTINE_ADDR,A3
+		MOVE.W	SR,D0			* legge il registro di stato
+		ANDI.W	#$D8FF,D0		* maschera per reg stato (stato utente, int abilitati) 8=1000
+		MOVE.W	D0,SR			* pone liv int a 000
+		EOR.W		D5,D5			* pulisco il flag
+LOOP  	CMP.W 	#1,D5		* Controllo se ho la routine
+	BNE		LOOP 
+	JSR		(A3)
+	EOR.W		D5,D5		* pulisco il flag
+	JMP		LOOP	
+
+	ORG $8700		
+* A0 indirizzo dato della periferica
+* A1 indirizzo della procedura	
+* D0 contatore messaggi
+* D1appoggio/ contatore byte che compongono parola
+INT3   	MOVEM.L	A0-A1/D0-D1,-(SP)
+
+	MOVE.W	COUNTER_MEX,D0
+	MOVEA.L	#PIADA,A0
+	MOVEA.L	#ROUTINE_ADDR,A1
+	ADDA.L	D0,A1
+
+	MOVE.B	(A0),D1		* Copio il messaggio in un registro temporaneo
+	MOVE.B	D1,(A1)		* Sposto il messaggio nella corretta area codice
+	ADD.W		#1,D0 		* Incremento il numero di messaggi ricevuti
+	
+
+	MOVE.W	CNTR_BYTE,D1
+	ADD.W		#1,D1
+	CMP.W	#2,D1
+	BNE		EISR
+*CK-> Check , ossia controllo se ho ricevuto RTS
+CK	SUBA.L	#1,A1 * se stiamo qui significa che in A1 ci sta indirizzo_messaggio_attuale+1, quindi dobbiamo sottrarre
+	CMP.W	#RTS_OPC,(A1)
+	BNE		ECK
+	MOVE.W	#1,D5	* Metti il flag di esecuzione della procedura
+	EOR.W		D0,D0	* Resetta il numero di messaggi ricevuti, la prossima procedura dovra' sovrascrivere l'attuale.
+* End check, in ogni caso devo mettere a 0 il counter byte
+ECK	EOR.W		D1,D1
+
+* Fine dell'isr, qui vado ad assegnare i nuovi valori ai contatori ed a ripristinare i registri
+EISR	MOVE.W	D0,COUNTER_MEX
+	MOVE.W	D1,CNTR_BYTE
+	MOVEM.L	(SP)+,A0-A1/D0-D1		
+
+	RTE
+
+
+	END	MAIN
+
+
+
+
+
+
+

@@ -1,0 +1,78 @@
+* Questo driver deve, tramite una PIA 68k impostata tramite una trasmissione senza isr inviare una procedura ad un ricevitore che, una volta ricevuta la procedura, andra' ad eseguirla.
+* Questo e' il trasmettitore, usiamo come al solito il porto B per trasmettere mappato con gli indirizzi 2006,2007.
+* Noto l'indirizzo di partenza della procedura si andra' a copiare una word da questo indirizzo di partenza in un buffer, se la word coincide con l'RTS allora questa sara' l'ultima ad essere inviata.
+* controllo simile lo fara' il ricevitore
+	ORG $8000
+* Locazioni dei registri del porto B	
+PIADB		EQU	$2006
+PIACB		EQU	$2007
+PIACFGB	EQU	%00100100	* Configurazione del porto B
+PIADIRB	EQU	$FF
+RTS_OPC	EQU	$4E75 
+* La procedura semplicemente addiziona due numeri e li compara con 100
+	ORG	$8100
+PROCEDURE	ADD.W		D0,D1
+		CMP.W	#100,D1
+		MOVE.W	#42,D7
+		RTS
+*************************************************
+*	Algoritmo di invio
+*		unsigned char *procedure=8100; 
+*		unsigned char *data_ptr=2006;
+*		unsigned char *ctr_ptr=2007;
+*		unsigned char h;
+*		unsigned char complete_word[2];
+*		unsigned int stop=0,ctr=0;
+*		unsigned char mask=0x80;	
+*		init_cfg(ctr_ptr);
+*		while(!stop){
+*			h=*data_ptr; 		*Lettura fittizia
+*			h=*procedure; 
+*			*data_ptr=h;		* Avrei potuto anche fare direttamente questo senza usare h come appoggio in C
+*			while(!mask &ctr_ptr);	* Attesa che CBR7 diventi 0 
+*			complete[ctr]=h; 	* Salvo la parte di parola che ho inviato 			
+*			ctr++;
+*			if(ctr==2){		
+*				stop=complete[ctr-2] == RTS_OPC[0] && complete[ctr-1] == RTS_OPC[1]; * controllo se la word inviata non sia proprio rts
+*				ctr=0;
+*			}
+*		}
+*************************************************
+	ORG	$8200
+START		JSR	PBINIT	* Inizializzo come prima cosa la PIA.	
+		MOVEA.L	#PROCEDURE,A2 * Metto l'indirizzo della procedura in A2
+		* Carico in A0 l'indirizzo del dato
+		MOVEA.L	#PIADB,A0
+		* Carico in A1 l'indirizzo di controllo
+		MOVEA.L	#PIACB,A1
+		
+SND_WD	MOVEA.L	A2,A3 		* Salvo un puntatore alla word che sto per inviare
+		* Se l'opcode non e' RTS allora possiamo andare ad inviare i due byte.
+WORD_SND	EOR.W		D0,D0 		* D0 mi funge da contatore
+CHAR_SND	MOVE.B	(A0),D1		* Lettura fittizia che pulisce CBR7
+		CMP.W	#2,D0
+		BEQ		CHECK		* Se ho inviato una word allora posso andare 
+		MOVE.B	(A2)+,D1 	* metto in D1 il byte da inviare post incrementando A2	
+		MOVE.B	D1,(A0)		* Copio il dato da inviare nel registro dato della pia, che iniziera' la comunicazione abbassando CB2	
+		* A questo punto devo aspettare che la periferica abbia ricevuto il dato
+WT_LOOP	MOVE.B	(A1),D1
+		ANDI.B		#$80,D1 
+		BEQ		WT_LOOP
+		ADD.W		#1,D0 * Incremento il contatore e salto
+		BRA		CHAR_SND
+		* Controlla che l'ultima parola inviata non sia rts
+CHECK		CMP.W	#RTS_OPC,(A3)
+		BNE		SND_WD
+LOOP		JMP		LOOP
+* Setta il main
+PBINIT		MOVE.B	#0,PIACB		* Metti 0 nel registro di controllo, in questo modo si hanno interruzioni disabilitate e posso scrivere nel registro direzione
+		MOVE.B	#PIADIRB,PIADB	* Settalo come output
+		MOVE.B	#PIACFGB,PIACB	* Infine setta la configurazione ed escitene
+		RTS
+
+		END START
+
+
+
+
+
