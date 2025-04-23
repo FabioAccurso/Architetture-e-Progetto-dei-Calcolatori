@@ -1,0 +1,54 @@
+***************   SISTEMA A -- Ricevitore ******************
+***********************************************
+************ AREA DATI **********************
+	ORG	$8000
+IB	DC.B	0	;Messaggi ricevuti nell'attuale iterazione da B
+IC	DC.B	0	;Messaggi ricevuti nell'attuale iterazione da C
+INDN	DC.B	0	;Numero caratteri attuale comunicazione
+INDK	DC.B	0	;Numero Iterazioni
+SEM	DC.B	0	;Semaforo da gestire con TAS
+POS	DC.B	%10000001	;Variabile possesso che puo essere -1,0,1. Di default a -1 ovvero libero
+
+K			EQU	3
+N			EQU	3
+PIACAB		EQU		$2005
+PIADAB		EQU 		$2004
+PIACAC			EQU		$2009
+PIADAC		EQU 		$2008
+
+**********************************************************
+MAIN		JSR	DVAIN
+		MOVE.W	SR,D0
+		ANDI.W	#$D8FF,D0	;<- passo a stato utente e abilito interruzioni
+		MOVE.W	D0,SR
+
+*************************************************************************
+LOOP	JMP	LOOP
+**************************************************************************
+
+**************************************************
+*	Subroutine per inizializzare le 2 PIA
+**************************************************
+DVAIN		MOVE.B	#0,PIACAB
+		MOVE.B	#$00,PIADAB
+		MOVE.B	#%00100101,PIACAB
+
+		MOVE.B	#0,PIACAC
+		MOVE.B	#$00,PIADAC
+		MOVE.B	#%00100101,PIACAC
+
+		RTS
+***************************************************************
+*	ISR A relativa a ricezione da B
+***************************************************************
+
+
+
+***************************************************************
+*	ISR A relativa a ricezione da C
+***************************************************************
+
+
+
+*******************************************************
+	END	MAIN
