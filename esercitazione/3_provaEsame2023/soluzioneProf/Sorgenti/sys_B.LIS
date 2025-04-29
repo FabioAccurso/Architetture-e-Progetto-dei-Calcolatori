@@ -1,0 +1,49 @@
+00000000                                     1  
+00008000                                     2  	ORG	$8000
+00008000  =00000003                          3  DIM 	EQU 	3
+00008000  01 02 03 00                        4  MES	DC.B	1,2,3,0 * Lo zero è stato inserito per padding, al fine di avere indirizzi di memoria allineati a 2.
+00008004                                     5  
+00008004  0000                               6  CNTB	DC.W	0
+00008006                                     7  
+00008006  =00002006                          8  PIADB	EQU	$2006
+00008006  =00002007                          9  PIACB	EQU	$2007
+00008006                                    10  
+00008006                                    11  
+00008200                                    12  	ORG	$8200
+00008200  4EB9 00008236                     13  INIT	JSR	INIZIALIZZA
+00008206                                    14  	
+00008206                                    15  	*Invio dimensione
+00008206  363C 0003                         16  	MOVE.W 	#DIM,D3	
+0000820A  207C 00002006                     17  	MOVEA.L	#PIADB,A0
+00008210  227C 00008000                     18  	MOVEA.L 	#MES,A1
+00008216  33FC 0001 00008004                19  	MOVE.W 	#1,CNTB 	* Inizia scrivendo 1 nel contatore di bytes.		
+0000821E  3039 00008004                     20  	MOVE.W	CNTB,D0	* D0 mantiene sempre il conteggio di bytes.
+00008224                                    21  	
+00008224  40C1                              22  	MOVE.W	SR,D1
+00008226  0241 D8FF                         23  	ANDI.W	#$D8FF,D1	*maschera per le interruzioni. 
+0000822A  46C1                              24  	MOVE.W	D1,SR
+0000822C  1410                              25  	MOVE.B	(A0),D2		* Effettua la lettura fittizia
+0000822E  1091                              26  	MOVE.B 	(A1),(A0)	* Scrivi il primo messaggio
+00008230                                    27  
+00008230  4EF9 00008230                     28  LOOP	JMP	LOOP
+00008236                                    29  
+00008236                                    30  
+00008236                                    31  INIZIALIZZA	
+00008236  11FC 0000 2007                    32  	MOVE.B	#0,PIACB
+0000823C  11FC 00FF 2006                    33  	MOVE.B	#$FF,PIADB
+00008242  11FC 0025 2007                    34  	MOVE.B	#%00100101,PIACB
+00008248  4E75                              35  	RTS
+0000824A                                    36  
+0000824A                                    37  *interruzione livello	4 mappato a $70
+00008800                                    38  	ORG	$8800
+00008800  1410                              39  INT4	MOVE.B 	(A0),D2		* Lettura fittizia
+00008802  10B1 0000                         40  	MOVE.B 	(A1,D0),(A0)	* Invia il carattere successivo
+00008806  5240                              41  	ADDI.W 	#1,D0
+00008808  B043                              42  	CMP.W	D3,D0
+0000880A  6600 0006                         43  	BNE		EI4
+0000880E  303C 0000                         44  	MOVE.W	#0,D0
+00008812  4E73                              45  EI4 	RTE
+00008814                                    46  	END	INIT
+
+No errors detected
+No warnings generated

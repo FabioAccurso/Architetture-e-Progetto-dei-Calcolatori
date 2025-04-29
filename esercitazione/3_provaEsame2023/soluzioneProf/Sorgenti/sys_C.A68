@@ -1,0 +1,57 @@
+
+	ORG	$8000
+DIM 	EQU 	3
+MES	DC.B	4,5,6,0 * Lo zero � stato inserito per padding, al fine di avere indirizzi di memoria allineati a 2.
+
+CNTB	DC.W	0
+
+PIADB	EQU	$2006
+PIACB	EQU	$2007
+
+
+	ORG	$8200
+INIT	JSR	INIZIALIZZA
+	
+	*Invio dimensione
+	MOVE.W 	#DIM,D3	
+	MOVEA.L	#PIADB,A0
+	MOVEA.L 	#MES,A1
+	MOVE.W 	#1,CNTB 	* Inizia scrivendo 1 nel contatore di bytes.		
+	MOVE.W	CNTB,D0	* D0 mantiene sempre il conteggio di bytes.
+	
+	MOVE.W	SR,D1
+	ANDI.W	#$D8FF,D1	*maschera per le interruzioni. 
+	MOVE.W	D1,SR
+	MOVE.B	(A0),D2		* Effettua la lettura fittizia
+	MOVE.B 	(A1),(A0)	* Scrivi il primo messaggio
+
+LOOP	JMP	LOOP
+
+
+INIZIALIZZA	
+	MOVE.B	#0,PIACB
+	MOVE.B	#$FF,PIADB
+	MOVE.B	#%00100101,PIACB
+	RTS
+
+*interruzione livello	4 mappato a $70
+	ORG	$8800
+INT4	MOVE.B 	(A0),D2		* Lettura fittizia
+	MOVE.B 	(A1,D0),(A0)	* Invia il carattere successivo
+	ADDI.W 	#1,D0
+	CMP.W	D3,D0
+	BNE		EI4
+	MOVE.W	#0,D0
+EI4 	RTE
+	END	INIT
+
+
+
+
+
+
+
+
+
+
+
