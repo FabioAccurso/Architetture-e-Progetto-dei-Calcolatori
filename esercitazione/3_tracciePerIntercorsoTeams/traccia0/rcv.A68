@@ -1,0 +1,51 @@
+************* RICEVITORE **********************
+*******************************************************
+	ORG	$8000
+MSG		DS.L	2	
+IDX		DC.W	0
+NUM		DC.B	0
+CARAT		EQU	3
+NMESS	EQU	2
+
+PIADA	EQU    $2004			;indirizzo di PIA-A dato, usato in input
+PIACA	EQU    $2005			;indirizzo di PIA-A stato/controllo
+*********************************************************************************
+	ORG	$8100
+MAIN 	JSR    	DVAIN				;inizializza PIA porto A
+	MOVE.W	SR,D0			;legge il registro di stato
+	ANDI.W	#$D8FF,D0 		;maschera per reg stato (stato utente, int abilitati)
+	MOVE.W	D0,SR			;pone liv int a 000
+********************************************************************************
+LOOP 	JMP LOOP	
+************************************************************************************
+DVAIN	MOVE.B	#0,PIACA		;mette 0 nel registro controllo cosi'` al prossimo accesso a PIADA (indirizzo pari)
+*						;selezioner√  il registro direzione del porto A
+	MOVE.B	#$00,PIADA		;accede a DRA e pone DRA=0 : le linee di A sono linee di input	
+	MOVE.B	#%00100101,PIACA  	;imposta il registro di controllo come indicato sopra, ponendo IRQA1=1 e IRQA2=1
+*						;i bit CRA7 e CRA6 sono a sola lettura	
+    	RTS
+
+*****************************************************************************************
+*	Interruzione relativa a PIA che riceve un carattere e lo salva in memoria
+*****************************************************************************************
+	ORG	$8600
+INT	MOVE.L  A1,-(A7)		;salvataggio registri
+	MOVE.L  A0,-(A7)
+	MOVE.L  D0,-(A7)
+
+	MOVEA.L	#MSG,A0		;inizializzazione indirizzi device
+	MOVEA.L	#PIADA,A1
+	MOVE.W	IDX,D0
+	
+	MOVE.B 	(A1),(A0,D0)
+
+	ADDI.W	#1,D0
+	MOVE.W	D0,IDX
+	
+	MOVE.L	(A7)+,A1
+	MOVE.L	(A7)+,A0
+	MOVE.L	(A7)+,D0
+
+	RTE
+************************************************************************************
+	END	MAIN

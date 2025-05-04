@@ -1,0 +1,83 @@
+00000000                                     1  ************* TRASMETTITORE **********************
+00000000                                     2  *******************************************************
+00008000                                     3  	ORG $8000
+00008000  10203040                           4  MSG		DC.L	$10203040	
+00008004  0000                               5  IDX		DC.W	0
+00008006  0000                               6  NUM		DC.W	0
+00008008  =00000003                          7  CARAT		EQU	3
+00008008  =00000002                          8  NMESS	EQU	2
+00008008                                     9  	* Locazioni dei registri del porto B	
+00008008  =00002006                         10  PIADB		EQU	$2006
+00008008  =00002007                         11  PIACB		EQU	$2007
+00008008                                    12  
+00008008                                    13  ***********************************************************************************************
+00008200                                    14  	ORG	$8200
+00008200  4EB9 0000875A                     15  START		JSR    	DVBOUT			;inizializza PIA porto B
+00008206                                    16  
+00008206                                    17  		
+00008206  40C0                              18  		MOVE.W	SR,D0			;legge il registro di stato
+00008208  0240 D8FF                         19  		ANDI.W	#$D8FF,D0 		;maschera per reg stato (stato utente, int abilitati)
+0000820C  46C0                              20  		MOVE.W	D0,SR			;pone liv int a 000
+0000820E                                    21  	
+0000820E  227C 00002006                     22  		MOVEA.L	#PIADB,A1	
+00008214  207C 00008000                     23  		MOVEA.L	#MSG,A0
+0000821A  3039 00008004                     24  		MOVE.W	IDX,D0
+00008220                                    25  
+00008220  1211                              26  		MOVE.B	(A1),D1			;lettura fittizia
+00008222  12B0 0000                         27  		MOVE.B	(A0,D0),(A1)
+00008226  5240                              28  		ADDI.W	#1,D0
+00008228  33C0 00008004                     29  		MOVE.W	D0,IDX			;aggiorniamo l'indice in memoria
+0000822E                                    30  
+0000822E                                    31  		
+0000822E                                    32  *****************************************************************************************
+0000822E  4EF9 0000822E                     33  LOOP		JMP		LOOP
+00008234                                    34  *******************************************************************************************
+00008234                                    35  
+00008234                                    36  ******************************************************************************************************
+00008234                                    37  *	Interruzione relativa alla trasmissione. Quando dato e' stato letto trasmetto il prossimo 
+00008234                                    38  *******************************************************************************************************
+00008700                                    39  		ORG	$8700
+00008700  2F00                              40  INT4	MOVE.L	D0,-(A7)
+00008702  2F01                              41  	MOVE.L	D1,-(A7)
+00008704  2F08                              42  	MOVE.L	A0,-(A7)
+00008706  2F09                              43  	MOVE.L	A1,-(A7)
+00008708                                    44  
+00008708  227C 00002006                     45  	MOVEA.L	#PIADB,A1
+0000870E  207C 00008000                     46  	MOVEA.L	#MSG,A0
+00008714                                    47  
+00008714                                    48  *Controllo se ho completato l'invio del messaggio, ovvero se ho inviato tutti i caratteri
+00008714  3039 00008004                     49  SEND	MOVE.W	IDX,D0
+0000871A  B07C 0003                         50  	CMP.W	#CARAT,D0
+0000871E  6700 0014                         51  	BEQ		EOM
+00008722                                    52  
+00008722  1211                              53  	MOVE.B	(A1),D1			;lettura fittizia
+00008724  12B0 0000                         54  	MOVE.B	(A0,D0),(A1)
+00008728  5240                              55  	ADDI.W	#1,D0
+0000872A  33C0 00008004                     56  	MOVE.W	D0,IDX			;aggiorniamo l'indice in memoria
+00008730  6000 001E                         57  	BRA		FIN
+00008734                                    58  
+00008734                                    59  *Caso EOM (End of Message), azzero contatore caratteri e verifico se ho altro messaggio da inviare 
+00008734  33FC 0000 00008004                60  EOM	MOVE.W	#0,IDX
+0000873C  3239 00008006                     61  	MOVE.W	NUM,D1
+00008742  5241                              62  	ADDI.W	#1,D1
+00008744  33C1 00008006                     63  	MOVE.W	D1,NUM
+0000874A  B27C 0002                         64  	CMP.W	#NMESS,D1
+0000874E  66C4                              65  	BNE		SEND
+00008750                                    66  
+00008750                                    67  *Fine ISR
+00008750  225F                              68  FIN	MOVE.L	(A7)+,A1
+00008752  205F                              69  	MOVE.L	(A7)+,A0
+00008754  221F                              70  	MOVE.L	(A7)+,D1
+00008756  201F                              71  	MOVE.L	(A7)+,D0
+00008758  4E73                              72  	RTE
+0000875A                                    73  
+0000875A                                    74  ************************************************************************************************************
+0000875A  11FC 0000 2007                    75  DVBOUT	MOVE.B	#0,PIACB		;seleziona il registro direzione di PIA porto B 
+00008760  11FC 00FF 2006                    76  		MOVE.B	#$FF,PIADB	  	;accede a DRB e pone DRA=1 : le linee di B sono linee di output	
+00008766  11FC 0025 2007                    77  		MOVE.B	#%00100101,PIACB   	;imposta il registro di controllo come indicato sopra
+0000876C  4E75                              78  		RTS
+0000876E                                    79  ************************************************************************************************************
+0000876E                                    80  		END START
+
+No errors detected
+No warnings generated

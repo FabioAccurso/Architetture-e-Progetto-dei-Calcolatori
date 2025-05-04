@@ -1,0 +1,180 @@
+00008000                                     1     ORG $8000
+00008000                                     2  
+00008000                                     3  ***************  Definizione di macro
+00008000  =00000003                          4  MEX_CHAR	EQU 3     *  Numero di caratteri che compongono un messaggio
+00008000  =00000005                          5  N_ITER	EQU 5	   *  Numero di iterazioni di esecuzione 
+00008000  =00000002                          6  N_MEX_B_ITER  EQU 2 * Numero di messaggi attesi da B in una iterazione (un messaggio ï¿½ composto da MEX_CHAR caratteri)
+00008000  =00000003                          7  N_MEX_PER_ITER EQU 3 * Numero di messaggi per iterazione
+00008000                                     8  
+00008000                                     9  * Registri di controllo della PIA.
+00008000  =00002004                         10  PIADA	EQU    $2004	
+00008000  =00002005                         11  PIACA	EQU    $2005	
+00008000  =00002008                         12  PIADA2	EQU	$2008
+00008000  =00002009                         13  PIACA2	EQU	$2009
+00008000                                    14  
+00008000                                    15  ***************** Definizioni di variabili
+00008000                                    16  * In questa traccia, per la sua corretta esecuzione, Ã¨ necessario distinguere due differenti buffer di ricezione 
+00008000                                    17  BUFF_B		DS.W 64 * Dimensione del Buffer di B 
+00008080                                    18  BUFF_C		DS.W 32	* Dimensione del buffer di C
+000080C0  0000                              19  CTR_CH_B   	DC.W 0	* Contatore di caratteri ricevuti da B
+000080C2  0000                              20  TOT_B DC.W 0	* Contatore del numero totale di bytes ricevuti da B.
+000080C4  0000                              21  CTR_MEX_B 		DC.W 0 	* Contatore dei messaggi ricevuti da B durante una iterazione
+000080C6  0000                              22  CTR_CH_C   	DC.W 0	* Contatore di caratteri ricevuti da C
+000080C8  0000                              23  TOT_C DC.W 0	* Contatore del numero totale di bytes ricevuti da C.
+000080CA                                    24  
+000080CA  0000                              25  END_B         	DC.W 0		* Variabile che indica che il sistema da B ha terminato la ricezione dei messaggi in una iterazione. 
+000080CC  0000                              26  END_C         	DC.W 0		* Variabile che indica che il sistema da C ha terminato la ricezione dei messaggi in una iterazione.
+000080CE  0000                              27  K               DC.W 0      * Contatore delle iterazioni.
+000080D0                                    28  
+000080D0                                    29  
+000080D0                                    30  
+00008200                                    31  	ORG	$8200
+00008200                                    32  
+00008200  4EB9 00008226                     33  INIT	JSR	INIZIALIZZA
+00008206                                    34  
+00008206  40C1                              35  	MOVE.W	SR,D1
+00008208  0241 D8FF                         36  	ANDI.W	#$D8FF,D1
+0000820C  46C1                              37  	MOVE.W	D1,SR
+0000820E                                    38  
+0000820E                                    39  
+0000820E  3A39 000080CA                     40  LOOP	MOVE.W END_B,D5
+00008214  3C39 000080CC                     41  		MOVE.W END_C,D6
+0000821A  3E39 000080CE                     42  		MOVE.W K,D7
+00008220  4EF9 0000820E                     43  		JMP	LOOP
+00008226                                    44  
+00008226                                    45  
+00008226                                    46  
+00008226                                    47  INIZIALIZZA
+00008226  11FC 0000 2005                    48  	MOVE.B	#0,PIACA
+0000822C  11FC 0000 2004                    49  	MOVE.B	#0,PIADA
+00008232  11FC 0025 2005                    50  	MOVE.B	#%00100101,PIACA
+00008238  11FC 0000 2009                    51  	MOVE.B	#0,PIACA2
+0000823E  11FC 0000 2008                    52  	MOVE.B	#0,PIADA2
+00008244  11FC 0025 2009                    53  	MOVE.B	#%00100101,PIACA2
+0000824A  4E75                              54  	RTS
+0000824C                                    55  
+0000824C                                    56  ** Nota: Ogni ISR legge caratteri finchè non completa i messaggi di una iterazione, quando lo fa si sospende, ossia esce senza leggere. 
+0000824C                                    57  ** Pseudo:
+0000824C                                    58  ** 	if(end_B == 1)
+0000824C                                    59  **		RTE
+0000824C                                    60  ** 	buff[total_ch_B] = PIADA
+0000824C                                    61  ** 	total_ch_B++	* Incrementa il valore totale dei caratteri ricevuti da B
+0000824C                                    62  ** 	curr_ch_B++ 	* Incrementa il contatore dei caratteri del mess corrente
+0000824C                                    63  **	if(curr_ch_B == 3){
+0000824C                                    64  **		curr_ch_B = 0
+0000824C                                    65  **		cnt_mex_B++
+0000824C                                    66  **		if(cnt_mex_B == 2){
+0000824C                                    67  **			end_B = 1 
+0000824C                                    68  **			if(end_C == 1){
+0000824C                                    69  **				k++
+0000824C                                    70  **				if(k == n_iter){
+0000824C                                    71  **					RTE
+0000824C                                    72  **				}
+0000824C                                    73  **				else{
+0000824C                                    74  **					end_B = 0
+0000824C                                    75  **					end_C = 0
+0000824C                                    76  **					cnt_mex_B = 0
+0000824C                                    77  **					if(C_susp == 1){ * Se C si era sospeso perché aveva completato i suoi messaggi, leggi il carattere sbloccandolo
+0000824C                                    78  **						total_ch_C ++
+0000824C                                    79  **						curr_ch_C = 1
+0000824C                                    80  **						buff_C[total_ch_C] = PIADA2		
+0000824C                                    81  **						RTE
+0000824C                                    82  **				}
+0000824C                                    83  **			}
+0000824C                                    84  **		}
+0000824C                                    85  **	}
+0000824C                                    86  **	RTE
+0000824C                                    87  		
+00008700                                    88       ORG $8700
+00008700                                    89  
+00008700  0C79 0001 000080CA                90  IB     			CMP.W 	#1,END_B 					* Se B ha terminato i suoi messaggi per iterazione se ne esce (sospendendosi).
+00008708  6700 00CA                         91  			BEQ    		IB_RTE
+0000870C  48E7 E080                         92  			MOVEM.L 	D0-D2/A0,-(SP)
+00008710  3039 000080C2                     93  			MOVE.W 	TOT_B,D0
+00008716  3239 000080C0                     94  			MOVE.W 	CTR_CH_B,D1
+0000871C  207C 00008000                     95  			MOVEA.L 	#BUFF_B,A0
+00008722  11B8 2004 0000                    96  			MOVE.B 	PIADA,(A0,D0) 			* Salva il carattere
+00008728  5240                              97  			ADDI.W 	#1,D0                   	* Incrementa di 1 il numero di caratteri TOTALI RICEVUTI
+0000872A  33C0 000080C2                     98  			MOVE.W 	D0,TOT_B		* Aggiorna la var in memoria
+00008730  5241                              99  			ADDI.W 	#1,D1                   	* Incrementa di 1 il numero di caratteri del messaggio corrente
+00008732  33C1 000080C0                    100  			MOVE.W 	D1,CTR_CH_B			* Aggiorna la variabile in memoria
+00008738  B27C 0003                        101  			CMP.W 	#MEX_CHAR,D1
+0000873C  6600 0092                        102  			BNE 	EIB
+00008740  33FC 0000 000080C0               103  			MOVE.W  	#0,CTR_CH_B
+00008748  3239 000080C4                    104  			MOVE.W	CTR_MEX_B,D1
+0000874E  5241                             105  			ADDI.W 	#1,D1
+00008750  33C1 000080C4                    106  			MOVE.W 	D1,CTR_MEX_B
+00008756  B27C 0002                        107  			CMP.W  	 #N_MEX_B_ITER,D1
+0000875A  6600 0074                        108  			BNE		EIB
+0000875E  33FC 0001 000080CA               109  			MOVE.W 	#1,END_B
+00008766  0C79 0001 000080CC               110  			CMP.W	#1,END_C
+0000876E  6600 0060                        111  			BNE 		EIB 			
+00008772  3439 000080CE                    112  			MOVE.W 	K,D2
+00008778  5242                             113  			ADDI.W	#1,D2
+0000877A  33C2 000080CE                    114  			MOVE.W	D2,K
+00008780  B47C 0005                        115  			CMP.W	#N_ITER,D2
+00008784  6700 004A                        116  			BEQ		EIB			
+00008788  33FC 0000 000080CA               117  			MOVE.W	#0,END_B
+00008790  33FC 0000 000080CC               118  			MOVE.W	#0,END_C
+00008798  33FC 0000 000080C4               119  			MOVE.W	#0,CTR_MEX_B
+000087A0                                   120  			* Recupera il messaggio di C se si era bloccato.
+000087A0  1038 2009                        121  			MOVE.B PIACA2,D0 	* Per prima cosa, si verifica se C ï¿½ sospeso utilizzando il settimo bit del registro di controllo
+000087A4  0200 0080                        122  			ANDI.B  #$80,D0
+000087A8  6700 0026                        123  			BEQ		EIB
+000087AC                                   124  			* Aggiorna i contatori e poi leggi il caratteri
+000087AC  3039 000080C8                    125  			MOVE.W 	TOT_C,D0
+000087B2  3200                             126  			MOVE.W	D0,D1
+000087B4  5241                             127  			ADDI.W	#1,D1
+000087B6  33C1 000080C8                    128  			MOVE.W	D1,TOT_C
+000087BC  33FC 0001 000080C6               129  			MOVE.W #1,CTR_CH_C
+000087C4  207C 00008080                    130  			MOVEA.L 	#BUFF_C,A0
+000087CA  11B8 2008 0000                   131  			MOVE.B	PIADA2,(A0,D0) * A questo punto me ne esco 
+000087D0  4CDF 0107                        132  EIB			MOVEM.L (SP)+,D0-D2/A0
+000087D4  4E73                             133  IB_RTE		RTE 
+000087D6                                   134  
+000087D6                                   135  
+000087D6                                   136  
+00008900                                   137   		ORG $8900
+00008900                                   138  
+00008900  0C79 0001 000080CC               139  IC     			CMP.W #1,END_C 					* Se B ha terminato i suoi messaggi per iterazione se ne esce (sospendendosi).
+00008908  6700 00AC                        140  			BEQ    IC_RTE
+0000890C  48E7 E080                        141  			MOVEM.L D0-D2/A0,-(SP)
+00008910  3039 000080C8                    142  			MOVE.W TOT_C,D0
+00008916  3239 000080C6                    143  			MOVE.W CTR_CH_C,D1
+0000891C  207C 00008080                    144  			MOVEA.L #BUFF_C,A0
+00008922  11B8 2008 0000                   145  			MOVE.B PIADA2,(A0,D0) 		* Salva il carattere
+00008928  5240                             146  			ADDI.W #1,D0                   		* Incrementa di 1 il numero di caratteri TOTALI RICEVUTI DA C
+0000892A  33C0 000080C8                    147  			MOVE.W D0,TOT_C				* Aggiorna la var in memoria
+00008930  5241                             148  			ADDI.W #1,D1                   			* Incrementa di 1 il numero di caratteri del messaggio corrente
+00008932  33C1 000080C6                    149  			MOVE.W 	D1,CTR_CH_C			* Aggiorna la variabile in memoria
+00008938  B27C 0003                        150  			CMP.W 	#MEX_CHAR,D1
+0000893C  6600 0074                        151  			BNE 	EIC
+00008940  33FC 0001 000080CC               152  			MOVE.W 	#1,END_C
+00008948  0C79 0001 000080CA               153  			CMP.W	#1,END_B
+00008950  6600 0060                        154  			BNE 	EIC
+00008954  3439 000080CE                    155  			MOVE.W 	K,D2
+0000895A  5242                             156  			ADDI.W	#1,D2
+0000895C  33C2 000080CE                    157  			MOVE.W	D2,K
+00008962  B47C 0005                        158  			CMP.W	#N_ITER,D2
+00008966  6700 004A                        159  			BEQ		EIC
+0000896A  33FC 0000 000080CA               160  			MOVE.W	#0,END_B
+00008972  33FC 0000 000080CC               161  			MOVE.W	#0,END_C
+0000897A  33FC 0000 000080C4               162  			MOVE.W	#0,CTR_MEX_B
+00008982                                   163  			* Recupera il messaggio di C se si era bloccato.
+00008982  1038 2005                        164  			MOVE.B PIACA,D0 	* Per prima cosa, si verifica se C ï¿½ sospeso utilizzando il settimo bit del registro di controllo
+00008986  0200 0080                        165  			ANDI.B  #$80,D0
+0000898A  6700 0026                        166  			BEQ		EIC
+0000898E                                   167  			* Aggiorna i contatori e poi leggi il caratteri
+0000898E  3039 000080C2                    168  			MOVE.W 	TOT_B,D0
+00008994  3200                             169  			MOVE.W	D0,D1
+00008996  5241                             170  			ADDI.W	#1,D1
+00008998  33C1 000080C2                    171  			MOVE.W	D1,TOT_B
+0000899E  33FC 0001 000080C0               172  			MOVE.W 	#1,CTR_CH_B
+000089A6  207C 00008000                    173  			MOVEA.L 	#BUFF_B,A0
+000089AC  11B8 2008 0000                   174  			MOVE.B	PIADA2,(A0,D0) * A questo punto me ne esco 
+000089B2  4CDF 0107                        175  EIC			MOVEM.L (SP)+,D0-D2/A0
+000089B6  4E73                             176  IC_RTE		RTE 
+000089B8                                   177  			END INIT
+
+No errors detected
+No warnings generated

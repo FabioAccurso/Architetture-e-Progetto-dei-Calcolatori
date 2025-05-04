@@ -1,0 +1,86 @@
+************* TRASMETTITORE **********************
+*******************************************************
+	ORG $8000
+MSG		DC.L	$10203040	
+IDX		DC.W	0
+NUM		DC.W	0
+CARAT		EQU	3
+NMESS	EQU	2
+	* Locazioni dei registri del porto B	
+PIADB		EQU	$2006
+PIACB		EQU	$2007
+
+***********************************************************************************************
+	ORG	$8200
+START		JSR    	DVBOUT			;inizializza PIA porto B
+
+		
+		MOVE.W	SR,D0			;legge il registro di stato
+		ANDI.W	#$D8FF,D0 		;maschera per reg stato (stato utente, int abilitati)
+		MOVE.W	D0,SR			;pone liv int a 000
+	
+		MOVEA.L	#PIADB,A1	
+		MOVEA.L	#MSG,A0
+		MOVE.W	IDX,D0
+
+		MOVE.B	(A1),D1			;lettura fittizia
+		MOVE.B	(A0,D0),(A1)
+		ADDI.W	#1,D0
+		MOVE.W	D0,IDX			;aggiorniamo l'indice in memoria
+
+		
+*****************************************************************************************
+LOOP		JMP		LOOP
+*******************************************************************************************
+
+******************************************************************************************************
+*	Interruzione relativa alla trasmissione. Quando dato e' stato letto trasmetto il prossimo 
+*******************************************************************************************************
+		ORG	$8700
+INT4	MOVE.L	D0,-(A7)
+	MOVE.L	D1,-(A7)
+	MOVE.L	A0,-(A7)
+	MOVE.L	A1,-(A7)
+
+	MOVEA.L	#PIADB,A1
+	MOVEA.L	#MSG,A0
+
+*Controllo se ho completato l'invio del messaggio, ovvero se ho inviato tutti i caratteri
+SEND	MOVE.W	IDX,D0
+	CMP.W	#CARAT,D0
+	BEQ		EOM
+
+	MOVE.B	(A1),D1			;lettura fittizia
+	MOVE.B	(A0,D0),(A1)
+	ADDI.W	#1,D0
+	MOVE.W	D0,IDX			;aggiorniamo l'indice in memoria
+	BRA		FIN
+
+*Caso EOM (End of Message), azzero contatore caratteri e verifico se ho altro messaggio da inviare 
+EOM	MOVE.W	#0,IDX
+	MOVE.W	NUM,D1
+	ADDI.W	#1,D1
+	MOVE.W	D1,NUM
+	CMP.W	#NMESS,D1
+	BNE		SEND
+
+*Fine ISR
+FIN	MOVE.L	(A7)+,A1
+	MOVE.L	(A7)+,A0
+	MOVE.L	(A7)+,D1
+	MOVE.L	(A7)+,D0
+	RTE
+
+************************************************************************************************************
+DVBOUT	MOVE.B	#0,PIACB		;seleziona il registro direzione di PIA porto B 
+		MOVE.B	#$FF,PIADB	  	;accede a DRB e pone DRA=1 : le linee di B sono linee di output	
+		MOVE.B	#%00100101,PIACB   	;imposta il registro di controllo come indicato sopra
+		RTS
+************************************************************************************************************
+		END START
+
+
+
+
+
+

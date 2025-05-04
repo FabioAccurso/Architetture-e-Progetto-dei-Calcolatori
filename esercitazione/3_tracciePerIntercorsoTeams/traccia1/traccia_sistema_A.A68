@@ -1,0 +1,189 @@
+   ORG $8000
+
+***************  Definizione di macro
+MEX_CHAR	EQU 3     *  Numero di caratteri che compongono un messaggio
+N_ITER	EQU 5	   *  Numero di iterazioni di esecuzione 
+N_MEX_B_ITER  EQU 2 * Numero di messaggi attesi da B in una iterazione (un messaggio � composto da MEX_CHAR caratteri)
+N_MEX_PER_ITER EQU 3 * Numero di messaggi per iterazione
+
+* Registri di controllo della PIA.
+PIADA	EQU    $2004	
+PIACA	EQU    $2005	
+PIADA2	EQU	$2008
+PIACA2	EQU	$2009
+
+***************** Definizioni di variabili
+* In questa traccia, per la sua corretta esecuzione, è necessario distinguere due differenti buffer di ricezione 
+BUFF_B		DS.W 64 * Dimensione del Buffer di B 
+BUFF_C		DS.W 32	* Dimensione del buffer di C
+CTR_CH_B   	DC.W 0	* Contatore di caratteri ricevuti da B
+TOT_B DC.W 0	* Contatore del numero totale di bytes ricevuti da B.
+CTR_MEX_B 		DC.W 0 	* Contatore dei messaggi ricevuti da B durante una iterazione
+CTR_CH_C   	DC.W 0	* Contatore di caratteri ricevuti da C
+TOT_C DC.W 0	* Contatore del numero totale di bytes ricevuti da C.
+
+END_B         	DC.W 0		* Variabile che indica che il sistema da B ha terminato la ricezione dei messaggi in una iterazione. 
+END_C         	DC.W 0		* Variabile che indica che il sistema da C ha terminato la ricezione dei messaggi in una iterazione.
+K               DC.W 0      * Contatore delle iterazioni.
+
+
+
+	ORG	$8200
+
+INIT	JSR	INIZIALIZZA
+
+	MOVE.W	SR,D1
+	ANDI.W	#$D8FF,D1
+	MOVE.W	D1,SR
+
+
+LOOP	MOVE.W END_B,D5
+		MOVE.W END_C,D6
+		MOVE.W K,D7
+		JMP	LOOP
+
+
+
+INIZIALIZZA
+	MOVE.B	#0,PIACA
+	MOVE.B	#0,PIADA
+	MOVE.B	#%00100101,PIACA
+	MOVE.B	#0,PIACA2
+	MOVE.B	#0,PIADA2
+	MOVE.B	#%00100101,PIACA2
+	RTS
+
+** Nota: Ogni ISR legge caratteri finch� non completa i messaggi di una iterazione, quando lo fa si sospende, ossia esce senza leggere. 
+** Pseudo:
+** 	if(end_B == 1)
+**		RTE
+** 	buff[total_ch_B] = PIADA
+** 	total_ch_B++	* Incrementa il valore totale dei caratteri ricevuti da B
+** 	curr_ch_B++ 	* Incrementa il contatore dei caratteri del mess corrente
+**	if(curr_ch_B == 3){
+**		curr_ch_B = 0
+**		cnt_mex_B++
+**		if(cnt_mex_B == 2){
+**			end_B = 1 
+**			if(end_C == 1){
+**				k++
+**				if(k == n_iter){
+**					RTE
+**				}
+**				else{
+**					end_B = 0
+**					end_C = 0
+**					cnt_mex_B = 0
+**					if(C_susp == 1){ * Se C si era sospeso perch� aveva completato i suoi messaggi, leggi il carattere sbloccandolo
+**						total_ch_C ++
+**						curr_ch_C = 1
+**						buff_C[total_ch_C] = PIADA2		
+**						RTE
+**					}
+**				}
+**			}
+**		}
+**	}
+**	RTE
+		
+     ORG $8700
+
+IB     			CMP.W 	#1,END_B 					* Se B ha terminato i suoi messaggi per iterazione se ne esce (sospendendosi).
+			BEQ    		IB_RTE
+			MOVEM.L 	D0-D2/A0,-(SP)
+			MOVE.W 	TOT_B,D0
+			MOVE.W 	CTR_CH_B,D1
+			MOVEA.L 	#BUFF_B,A0
+			MOVE.B 	PIADA,(A0,D0) 			* Salva il carattere
+			ADDI.W 	#1,D0                   	* Incrementa di 1 il numero di caratteri TOTALI RICEVUTI
+			MOVE.W 	D0,TOT_B		* Aggiorna la var in memoria
+			ADDI.W 	#1,D1                   	* Incrementa di 1 il numero di caratteri del messaggio corrente
+			MOVE.W 	D1,CTR_CH_B			* Aggiorna la variabile in memoria
+			CMP.W 	#MEX_CHAR,D1
+			BNE 	EIB
+			MOVE.W  	#0,CTR_CH_B
+			MOVE.W	CTR_MEX_B,D1
+			ADDI.W 	#1,D1
+			MOVE.W 	D1,CTR_MEX_B
+			CMP.W  	 #N_MEX_B_ITER,D1
+			BNE		EIB
+			MOVE.W 	#1,END_B
+			CMP.W	#1,END_C
+			BNE 		EIB 			
+			MOVE.W 	K,D2
+			ADDI.W	#1,D2
+			MOVE.W	D2,K
+			CMP.W	#N_ITER,D2
+			BEQ		EIB			
+			MOVE.W	#0,END_B
+			MOVE.W	#0,END_C
+			MOVE.W	#0,CTR_MEX_B
+			* Recupera il messaggio di C se si era bloccato.
+			MOVE.B PIACA2,D0 	* Per prima cosa, si verifica se C � sospeso utilizzando il settimo bit del registro di controllo
+			ANDI.B  #$80,D0
+			BEQ		EIB
+			* Aggiorna i contatori e poi leggi il caratteri
+			MOVE.W 	TOT_C,D0
+			MOVE.W	D0,D1
+			ADDI.W	#1,D1
+			MOVE.W	D1,TOT_C
+			MOVE.W #1,CTR_CH_C
+			MOVEA.L 	#BUFF_C,A0
+			MOVE.B	PIADA2,(A0,D0) * A questo punto me ne esco 
+EIB			MOVEM.L (SP)+,D0-D2/A0
+IB_RTE		RTE 
+
+
+
+ 		ORG $8900
+
+IC     			CMP.W #1,END_C 					* Se B ha terminato i suoi messaggi per iterazione se ne esce (sospendendosi).
+			BEQ    IC_RTE
+			MOVEM.L D0-D2/A0,-(SP)
+			MOVE.W TOT_C,D0
+			MOVE.W CTR_CH_C,D1
+			MOVEA.L #BUFF_C,A0
+			MOVE.B PIADA2,(A0,D0) 		* Salva il carattere
+			ADDI.W #1,D0                   		* Incrementa di 1 il numero di caratteri TOTALI RICEVUTI DA C
+			MOVE.W D0,TOT_C				* Aggiorna la var in memoria
+			ADDI.W #1,D1                   			* Incrementa di 1 il numero di caratteri del messaggio corrente
+			MOVE.W 	D1,CTR_CH_C			* Aggiorna la variabile in memoria
+			CMP.W 	#MEX_CHAR,D1
+			BNE 	EIC
+			MOVE.W 	#1,END_C
+			CMP.W	#1,END_B
+			BNE 	EIC
+			MOVE.W 	K,D2
+			ADDI.W	#1,D2
+			MOVE.W	D2,K
+			CMP.W	#N_ITER,D2
+			BEQ		EIC
+			MOVE.W	#0,END_B
+			MOVE.W	#0,END_C
+			MOVE.W	#0,CTR_MEX_B
+			* Recupera il messaggio di C se si era bloccato.
+			MOVE.B PIACA,D0 	* Per prima cosa, si verifica se C � sospeso utilizzando il settimo bit del registro di controllo
+			ANDI.B  #$80,D0
+			BEQ		EIC
+			* Aggiorna i contatori e poi leggi il caratteri
+			MOVE.W 	TOT_B,D0
+			MOVE.W	D0,D1
+			ADDI.W	#1,D1
+			MOVE.W	D1,TOT_B
+			MOVE.W 	#1,CTR_CH_B
+			MOVEA.L 	#BUFF_B,A0
+			MOVE.B	PIADA2,(A0,D0) * A questo punto me ne esco 
+EIC			MOVEM.L (SP)+,D0-D2/A0
+IC_RTE		RTE 
+			END INIT
+
+
+
+
+
+
+
+
+
+
+

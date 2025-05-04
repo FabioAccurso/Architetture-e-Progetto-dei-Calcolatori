@@ -1,0 +1,3 @@
+Per verificare il corretto funzionamento della traccia verificare nella locazione di memoria 8000 sono presenti 10 messaggi da 3 caratteri ricevuti 
+dal sistema B ( i valori dei messaggi caricano a seconda del codice caricato nell'M68K Nr.1). Dualmente devono esserci 5 messaggi ricevuti da C all'indirizzo 8080. 
+Inoltre i valori dei registri alterati nei loop devo essere rappresentativi della condizione di termine del programma ( end_B = 1, end_C = 1 ed K = 5).
