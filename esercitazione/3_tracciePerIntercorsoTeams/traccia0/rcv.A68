@@ -2,8 +2,9 @@
 *******************************************************
 	ORG	$8000
 MSG		DS.L	2	
-IDX		DC.W	0
-NUM		DC.B	0
+IDX		DC.W	0	;Usato solo per sfasamento
+NUM		DC.B	0	;Conta i caratteri
+CARI		DC.W	0
 CARAT		EQU	3
 NMESS	EQU	2
 
@@ -32,20 +33,41 @@ DVAIN	MOVE.B	#0,PIACA		;mette 0 nel registro controllo cosi'` al prossimo access
 INT	MOVE.L  A1,-(A7)		;salvataggio registri
 	MOVE.L  A0,-(A7)
 	MOVE.L  D0,-(A7)
-
+	MOVE.L  D1,-(A7)
+	MOVE.L  D2,-(A7)
+	
 	MOVEA.L	#MSG,A0		;inizializzazione indirizzi device
 	MOVEA.L	#PIADA,A1
 	MOVE.W	IDX,D0
+	MOVE.W	NUM,D1
+	MOVE.W	CARI,D2
 	
-	MOVE.B 	(A1),(A0,D0)
+	CMP.W	#NMESS,D1	;vedo quanti messaggi ho ricevuto per vedere se ho terminato la recezione dei 2 messaggi
+	BEQ	EOM
 
+	MOVE.B 	(A1),(A0,D0)
 	ADDI.W	#1,D0
 	MOVE.W	D0,IDX
+	ADDI.W	#1,D2
+	CMP.W	#CARAT,D2
+	BNE	NEX
 	
-	MOVE.L	(A7)+,A1
-	MOVE.L	(A7)+,A0
+	ADDI.W	#1,D1		;Incremento i messaggi ricevuti
+	MOVE.W	D1,NUM	;Salvo il nuovo num di messaggi ricevuti
+	MOVE.W	#0,D2		;Azzero caratteri	
+
+
+NEX	MOVE.W	D2,CARI
+	
+	
+EOM	MOVE.L	(A7)+,D2	
+	MOVE.L	(A7)+,D1
 	MOVE.L	(A7)+,D0
+	MOVE.L	(A7)+,A0
+	MOVE.L	(A7)+,A1
+	
 
 	RTE
 ************************************************************************************
 	END	MAIN
+

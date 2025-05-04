@@ -2,53 +2,74 @@
 00000000                                     2  *******************************************************
 00008000                                     3  	ORG	$8000
 00008000                                     4  MSG		DS.L	2	
-00008008  0000                               5  IDX		DC.W	0
-0000800A  00                                 6  NUM		DC.B	0
-0000800B  =00000003                          7  CARAT		EQU	3
-0000800B  =00000002                          8  NMESS	EQU	2
-0000800B                                     9  
-0000800B  =00002004                         10  PIADA	EQU    $2004			;indirizzo di PIA-A dato, usato in input
-0000800B  =00002005                         11  PIACA	EQU    $2005			;indirizzo di PIA-A stato/controllo
-0000800B                                    12  *********************************************************************************
-00008100                                    13  	ORG	$8100
-00008100  4EB9 00008114                     14  MAIN 	JSR    	DVAIN				;inizializza PIA porto A
-00008106  40C0                              15  	MOVE.W	SR,D0			;legge il registro di stato
-00008108  0240 D8FF                         16  	ANDI.W	#$D8FF,D0 		;maschera per reg stato (stato utente, int abilitati)
-0000810C  46C0                              17  	MOVE.W	D0,SR			;pone liv int a 000
-0000810E                                    18  ********************************************************************************
-0000810E  4EF9 0000810E                     19  LOOP 	JMP LOOP	
-00008114                                    20  ************************************************************************************
-00008114  11FC 0000 2005                    21  DVAIN	MOVE.B	#0,PIACA		;mette 0 nel registro controllo cosi'` al prossimo accesso a PIADA (indirizzo pari)
-0000811A                                    22  *						;selezioner√  il registro direzione del porto A
-0000811A  11FC 0000 2004                    23  	MOVE.B	#$00,PIADA		;accede a DRA e pone DRA=0 : le linee di A sono linee di input	
-00008120  11FC 0025 2005                    24  	MOVE.B	#%00100101,PIACA  	;imposta il registro di controllo come indicato sopra, ponendo IRQA1=1 e IRQA2=1
-00008126                                    25  *						;i bit CRA7 e CRA6 sono a sola lettura	
-00008126  4E75                              26      	RTS
-00008128                                    27  
-00008128                                    28  *****************************************************************************************
-00008128                                    29  *	Interruzione relativa a PIA che riceve un carattere e lo salva in memoria
-00008128                                    30  *****************************************************************************************
-00008600                                    31  	ORG	$8600
-00008600  2F09                              32  INT	MOVE.L  A1,-(A7)		;salvataggio registri
-00008602  2F08                              33  	MOVE.L  A0,-(A7)
-00008604  2F00                              34  	MOVE.L  D0,-(A7)
-00008606                                    35  
-00008606  207C 00008000                     36  	MOVEA.L	#MSG,A0		;inizializzazione indirizzi device
-0000860C  227C 00002004                     37  	MOVEA.L	#PIADA,A1
-00008612  3039 00008008                     38  	MOVE.W	IDX,D0
-00008618                                    39  	
-00008618  1191 0000                         40  	MOVE.B 	(A1),(A0,D0)
-0000861C                                    41  
-0000861C  5240                              42  	ADDI.W	#1,D0
-0000861E  33C0 00008008                     43  	MOVE.W	D0,IDX
-00008624                                    44  	
-00008624  225F                              45  	MOVE.L	(A7)+,A1
-00008626  205F                              46  	MOVE.L	(A7)+,A0
-00008628  201F                              47  	MOVE.L	(A7)+,D0
-0000862A                                    48  
-0000862A  4E73                              49  	RTE
-0000862C                                    50  ************************************************************************************
-0000862C                                    51  	END	MAIN
+00008008  0000                               5  IDX		DC.W	0	;Usato solo per sfasamento
+0000800A  00                                 6  NUM		DC.B	0	;Conta i caratteri
+0000800C  0000                               7  CARI		DC.W	0
+0000800E  =00000003                          8  CARAT		EQU	3
+0000800E  =00000002                          9  NMESS	EQU	2
+0000800E                                    10  
+0000800E  =00002004                         11  PIADA	EQU    $2004			;indirizzo di PIA-A dato, usato in input
+0000800E  =00002005                         12  PIACA	EQU    $2005			;indirizzo di PIA-A stato/controllo
+0000800E                                    13  *********************************************************************************
+00008100                                    14  	ORG	$8100
+00008100  4EB9 00008114                     15  MAIN 	JSR    	DVAIN				;inizializza PIA porto A
+00008106  40C0                              16  	MOVE.W	SR,D0			;legge il registro di stato
+00008108  0240 D8FF                         17  	ANDI.W	#$D8FF,D0 		;maschera per reg stato (stato utente, int abilitati)
+0000810C  46C0                              18  	MOVE.W	D0,SR			;pone liv int a 000
+0000810E                                    19  ********************************************************************************
+0000810E  4EF9 0000810E                     20  LOOP 	JMP LOOP	
+00008114                                    21  ************************************************************************************
+00008114  11FC 0000 2005                    22  DVAIN	MOVE.B	#0,PIACA		;mette 0 nel registro controllo cosi'` al prossimo accesso a PIADA (indirizzo pari)
+0000811A                                    23  *						;selezioner√  il registro direzione del porto A
+0000811A  11FC 0000 2004                    24  	MOVE.B	#$00,PIADA		;accede a DRA e pone DRA=0 : le linee di A sono linee di input	
+00008120  11FC 0025 2005                    25  	MOVE.B	#%00100101,PIACA  	;imposta il registro di controllo come indicato sopra, ponendo IRQA1=1 e IRQA2=1
+00008126                                    26  *						;i bit CRA7 e CRA6 sono a sola lettura	
+00008126  4E75                              27      	RTS
+00008128                                    28  
+00008128                                    29  *****************************************************************************************
+00008128                                    30  *	Interruzione relativa a PIA che riceve un carattere e lo salva in memoria
+00008128                                    31  *****************************************************************************************
+00008600                                    32  	ORG	$8600
+00008600  2F09                              33  INT	MOVE.L  A1,-(A7)		;salvataggio registri
+00008602  2F08                              34  	MOVE.L  A0,-(A7)
+00008604  2F00                              35  	MOVE.L  D0,-(A7)
+00008606  2F01                              36  	MOVE.L  D1,-(A7)
+00008608  2F02                              37  	MOVE.L  D2,-(A7)
+0000860A                                    38  	
+0000860A  207C 00008000                     39  	MOVEA.L	#MSG,A0		;inizializzazione indirizzi device
+00008610  227C 00002004                     40  	MOVEA.L	#PIADA,A1
+00008616  3039 00008008                     41  	MOVE.W	IDX,D0
+0000861C  3239 0000800A                     42  	MOVE.W	NUM,D1
+00008622  3439 0000800C                     43  	MOVE.W	CARI,D2
+00008628                                    44  	
+00008628  B27C 0002                         45  	CMP.W	#NMESS,D1	;vedo quanti messaggi ho ricevuto per vedere se ho terminato la recezione dei 2 messaggi
+0000862C  6700 002A                         46  	BEQ	EOM
+00008630                                    47  
+00008630  1191 0000                         48  	MOVE.B 	(A1),(A0,D0)
+00008634  5240                              49  	ADDI.W	#1,D0
+00008636  33C0 00008008                     50  	MOVE.W	D0,IDX
+0000863C  5242                              51  	ADDI.W	#1,D2
+0000863E  B47C 0003                         52  	CMP.W	#CARAT,D2
+00008642  6600 000E                         53  	BNE	NEX
+00008646                                    54  	
+00008646  5241                              55  	ADDI.W	#1,D1		;Incremento i messaggi ricevuti
+00008648  33C1 0000800A                     56  	MOVE.W	D1,NUM	;Salvo il nuovo num di messaggi ricevuti
+0000864E  343C 0000                         57  	MOVE.W	#0,D2		;Azzero caratteri	
+00008652                                    58  
+00008652                                    59  
+00008652  33C2 0000800C                     60  NEX	MOVE.W	D2,CARI
+00008658                                    61  	
+00008658                                    62  	
+00008658  241F                              63  EOM	MOVE.L	(A7)+,D2	
+0000865A  221F                              64  	MOVE.L	(A7)+,D1
+0000865C  201F                              65  	MOVE.L	(A7)+,D0
+0000865E  205F                              66  	MOVE.L	(A7)+,A0
+00008660  225F                              67  	MOVE.L	(A7)+,A1
+00008662                                    68  	
+00008662                                    69  
+00008662  4E73                              70  	RTE
+00008664                                    71  ************************************************************************************
+00008664                                    72  	END	MAIN
 
 No errors detected
 No warnings generated
