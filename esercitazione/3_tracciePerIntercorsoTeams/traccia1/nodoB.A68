@@ -1,0 +1,26 @@
+******************************************************
+*	Sistema B- Trasmettitore
+******************************************************
+	ORG	$8000
+PIADB	EQU	2006
+PIACB	EQU	2007
+
+
+*************************************************************
+	ORG	$8100
+MAIN	JSR		DVOUT		;Inizializzazione della PIA
+	MOVE.W	SR,D0
+	ANDI.W	#$D8FF,D0	;Smaschera interruzioni 
+	MOVE.W	D0,SR
+
+
+*********************************************
+LOOP	JMP	LOOP
+*********************************************
+DVOUT		MOVE.B	#0,PIACB
+		MOVE.B	#$FF,PIADB
+		MOVE.B	#%00100101,PIACB
+		RST
+*********************************************************
+	ORG	$8700
+INT	**Continua qui con codice interruzione. Sara uguale anche per nodo C
