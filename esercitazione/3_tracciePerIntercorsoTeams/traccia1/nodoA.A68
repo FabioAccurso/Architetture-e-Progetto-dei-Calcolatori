@@ -1,0 +1,60 @@
+******************************************************
+*	Sistema A - Ricevitore
+******************************************************
+	ORG	$8000
+MESB	DS.L	6
+MESC	DS.L	3
+MB	DC.B	0
+MC	DC.B	0
+CARA	DC.B	0
+CARB	DC.B	0
+K	DC.B	0
+PIACAB	EQU	$2004
+PIADAB	EQU	$2005
+PIACAC		EQU	$2008
+PIADAC	EQU	$2009
+TOTK		EQU	3
+TOTB		EQU	2
+TOTC		EQU	1
+TOTM		EQU	3
+TOTCAR	EQU	4
+
+**********************************************************************
+	ORG	$8100
+MAIN	JSR	DVIN
+	JSR	DVIN2
+
+	MOVE.W	SR,D0
+	ANDI.W	#$D8FF,D0
+	MOVE.W	D0,SR
+******************************************************************
+LOOP	JMP	LOOP
+*******************************************************************
+DVIN	MOVE.B	#0,PIACAB
+	MOVE.B	#0,PIADAB
+	MOVE.B	#%00100101,PIACAB
+	RTS
+
+**********************************************************************
+DVIN2	MOVE.B	#0,PIACAC
+	MOVE.B	#0,PIADAC
+	MOVE.B	#%00100101,PIACAC
+	RTS
+***************************************************************
+*Interruzione relativa alla PIA che riceve dal nodo B
+****************************************************************
+	ORG	$8600
+INT1
+
+
+
+***************************************************************
+*Interruzione relativa alla PIA che riceve dal nodo C
+****************************************************************
+	ORG	$8700
+INT2
+
+
+
+*****************************************************
+	END	MAIN
