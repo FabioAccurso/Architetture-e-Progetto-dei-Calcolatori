@@ -6,9 +6,10 @@ MESB	DS.L	6
 MESC	DS.L	3
 MB	DC.B	0
 MC	DC.B	0
-CARA	DC.B	0
+CARC	DC.B	0
 CARB	DC.B	0
 K	DC.B	0
+
 PIACAB	EQU	$2004
 PIADAB	EQU	$2005
 PIACAC		EQU	$2008
@@ -44,17 +45,37 @@ DVIN2	MOVE.B	#0,PIACAC
 *Interruzione relativa alla PIA che riceve dal nodo B
 ****************************************************************
 	ORG	$8600
-INT1
+INT1	MOVE.L	D0,-(A7)
+	MOVE.L	D1,-(A7)
+	MOVE.L	A0,-(A7)
+	MOVE.L	A1,-(A7)
+
+	MOVEA.L	#PIADAB,A0	;Indirizzo del registro dato PIA porto A collegata al nodo B
+	LEA		MESB,A1	;Indirizzo di destinazione del messaggio
+	MOVE.B	K,D0		;Numero iterazione
+	MOVE.B	CARB,D1	;Caratteri ricevuti da B
+	MOVE.B	MB,D2		;Messaggi ricevuti da B
+	
+	
+	*vedi pseudocodice scritto a mano
 
 
 
+
+	MOVE.L	(A7)+,A1
+	MOVE.L	(A7)+,A0
+	MOVE.L	(A7)+,D1
+	MOVE.L	(A7)+,D0
+
+	RTE
 ***************************************************************
 *Interruzione relativa alla PIA che riceve dal nodo C
 ****************************************************************
 	ORG	$8700
 INT2
-
+	*Uguale a quella di B ma con 1 solo messaggio
 
 
 *****************************************************
 	END	MAIN
+

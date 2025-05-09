@@ -36,9 +36,10 @@ INT	MOVE.L	D0,-(A7)
 	MOVE.B	IDX,D0
 
 	CMP.B		#N,D0
-	BEQ	FIN
+	BNE	SEND
+	MOVE.B	#0,D0
 
-	MOVE.B	(A1),D1		; Lettura Fittizia
+SEND	MOVE.B	(A1),D1		; Lettura Fittizia
 	MOVE.B	(A1,D0),(A0)	; Lettura
 	ADDI.B		#1,D0		; Incremento contatore e aggiorno
 	MOVE.B	D0,IDX
@@ -49,3 +50,4 @@ FIN	MOVE.L	(A7)+,A1
 	MOVE.L	(A7)+,D0
 
 	RTE
+
