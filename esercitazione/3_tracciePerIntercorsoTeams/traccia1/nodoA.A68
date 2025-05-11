@@ -3,7 +3,9 @@
 ******************************************************
 	ORG	$8000
 MESB	DS.L	6
+IB	DC.W	0
 MESC	DS.L	3
+IC	DC.W	0
 MB	DC.B	0
 MC	DC.B	0
 CARC	DC.B	0
@@ -49,19 +51,47 @@ INT1	MOVE.L	D0,-(A7)
 	MOVE.L	D1,-(A7)
 	MOVE.L	A0,-(A7)
 	MOVE.L	A1,-(A7)
+	MOVE.L	D3,-(A7)
+	MOVE.L	D4,-(A7)
 
 	MOVEA.L	#PIADAB,A0	;Indirizzo del registro dato PIA porto A collegata al nodo B
 	LEA		MESB,A1	;Indirizzo di destinazione del messaggio
 	MOVE.B	K,D0		;Numero iterazione
 	MOVE.B	CARB,D1	;Caratteri ricevuti da B
 	MOVE.B	MB,D2		;Messaggi ricevuti da B
-	
-	
-	*vedi pseudocodice scritto a mano
+	MOVE.B	MC,D3		;Messaggi ricevuti da C
+	MOVE.W	IB,D4		;Offset Messaggi B
 
 
+CK	CMP.B		#TOTK,D0
+	BEQ	EOM
 
+Z1	CMP.B		#TOTB,D2
+	BNE	Z2
+CC	CMP.B		#TOTC,D3	;Se B ha finito e anche C ha finito mi preoccupo in questa interruzione (quella di B) di iniziare nuova iterazione
+	BNE	EOM
+	MOVE.B	#0,D2
+	MOVE.B	D2,MB
+	MOVE.B	#0,D3
+	MOVE.B	D3,MC
+	ADDI.B		#1,D0
+	MOVE.B	D0,K
+	JMP	CK
 
+Z2	CMP.B		#TOTCAR,D1
+	BNE	INC
+	ADDI.B		#1,D2
+	MOVE.B	D2,MB
+	MOVE.B	#0,D1
+	MOVE.B	D1,CARB
+	JMP	Z1
+
+INC	MOVE.B	(A0),(A1,D4)
+	ADDI.B		#1,D4
+	MOVE.B	D4,IB
+
+EOM	MOVE.L	(A7)+,D4
+	MOVE.L	(A7)+,D3
 	MOVE.L	(A7)+,A1
 	MOVE.L	(A7)+,A0
 	MOVE.L	(A7)+,D1
@@ -78,4 +108,5 @@ INT2
 
 *****************************************************
 	END	MAIN
+
 
