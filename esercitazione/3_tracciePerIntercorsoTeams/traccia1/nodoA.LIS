@@ -1,0 +1,168 @@
+00000000                                     1  ******************************************************
+00000000                                     2  *	Sistema A - Ricevitore
+00000000                                     3  ******************************************************
+00008000                                     4  	ORG	$8000
+00008000                                     5  MESB	DS.L	6
+00008018  00                                 6  IB	DC.B	0
+0000801A                                     7  MESC	DS.L	3
+00008026  00                                 8  IC	DC.B	0
+00008027  00                                 9  MB	DC.B	0
+00008028  00                                10  MC	DC.B	0
+00008029  00                                11  CARC	DC.B	0
+0000802A  00                                12  CARB	DC.B	0
+0000802B  00                                13  K	DC.B	0
+0000802C                                    14  
+0000802C  =00002004                         15  PIADAB	EQU	$2004
+0000802C  =00002005                         16  PIACAB	EQU	$2005
+0000802C  =00002008                         17  PIADAC	EQU	$2008
+0000802C  =00002009                         18  PIACAC		EQU	$2009
+0000802C  =00000003                         19  TOTK		EQU	3
+0000802C  =00000002                         20  TOTB		EQU	2
+0000802C  =00000001                         21  TOTC		EQU	1
+0000802C  =00000003                         22  TOTM		EQU	3
+0000802C  =00000004                         23  TOTCAR	EQU	4
+0000802C                                    24  
+0000802C                                    25  **********************************************************************
+00008100                                    26  	ORG	$8100
+00008100  4EB9 00008114                     27  MAIN	JSR	DVIN
+00008106                                    28  
+00008106  40C0                              29  	MOVE.W	SR,D0
+00008108  0240 D8FF                         30  	ANDI.W	#$D8FF,D0
+0000810C  46C0                              31  	MOVE.W	D0,SR
+0000810E                                    32  
+0000810E                                    33  ******************************************************************
+0000810E  4EF9 0000810E                     34  LOOP	JMP	LOOP
+00008114                                    35  *******************************************************************
+00008114  11FC 0000 2005                    36  DVIN	MOVE.B	#0,PIACAB
+0000811A  11FC 0000 2004                    37  	MOVE.B	#0,PIADAB
+00008120  11FC 0025 2005                    38  	MOVE.B	#%00100101,PIACAB
+00008126  11FC 0000 2009                    39  	MOVE.B	#0,PIACAC
+0000812C  11FC 0000 2008                    40  	MOVE.B	#0,PIADAC
+00008132  11FC 0025 2009                    41  	MOVE.B	#%00100101,PIACAC
+00008138  4E75                              42  	RTS
+0000813A                                    43  ***************************************************************
+0000813A                                    44  *Interruzione relativa alla PIA che riceve dal nodo B -|- B ha priorita Inferiore rispetto a C
+0000813A                                    45  ****************************************************************
+0000813A                                    46  * NB quando termino interazione dovro' preoccuparmi di verificare se C si era sospeso ed eventualmente riattivarlo
+0000813A                                    47  *********************************************************************
+00008600                                    48  	ORG	$8600
+00008600  2F00                              49  INT1	MOVE.L	D0,-(A7)
+00008602  2F01                              50  	MOVE.L	D1,-(A7)
+00008604  2F08                              51  	MOVE.L	A0,-(A7)
+00008606  2F09                              52  	MOVE.L	A1,-(A7)
+00008608  2F03                              53  	MOVE.L	D3,-(A7)
+0000860A  2F04                              54  	MOVE.L	D4,-(A7)
+0000860C  2F0A                              55  	MOVE.L	A2,-(A7)
+0000860E                                    56  
+0000860E  207C 00002004                     57  	MOVEA.L	#PIADAB,A0	;Indirizzo del registro dato PIA porto A collegata al nodo B
+00008614  43F9 00008000                     58  	LEA		MESB,A1	;Indirizzo di destinazione del messaggio
+0000861A  1039 0000802B                     59  	MOVE.B	K,D0		;Numero iterazione
+00008620  1239 0000802A                     60  	MOVE.B	CARB,D1	;Caratteri ricevuti da B
+00008626  1439 00008027                     61  	MOVE.B	MB,D2		;Messaggi ricevuti da B
+0000862C  1639 00008028                     62  	MOVE.B	MC,D3		;Messaggi ricevuti da C
+00008632  1839 00008018                     63  	MOVE.B	IB,D4		;Offset Messaggi B
+00008638                                    64  
+00008638                                    65  
+00008638  B03C 0003                         66  CK	CMP.B		#TOTK,D0
+0000863C  6700 0068                         67  	BEQ	EOM
+00008640                                    68  
+00008640  B43C 0002                         69  Z1	CMP.B		#TOTB,D2
+00008644  6600 002C                         70  	BNE	Z2
+00008648  B63C 0001                         71  CC	CMP.B		#TOTC,D3	;Se B ha finito e anche C ha finito mi preoccupo in questa interruzione (quella di B) di iniziare nuova iterazione
+0000864C  6600 0058                         72  	BNE	EOM
+00008650  143C 0000                         73  	MOVE.B	#0,D2
+00008654  13C2 00008027                     74  	MOVE.B	D2,MB
+0000865A  163C 0000                         75  	MOVE.B	#0,D3
+0000865E  13C3 00008028                     76  	MOVE.B	D3,MC
+00008664  5200                              77  	ADDI.B		#1,D0
+00008666  13C0 0000802B                     78  	MOVE.B	D0,K
+0000866C                                    79  	*----------------------------------------------------*QUI DEVO CONTROLLARE SE C SI E' SOSPESO
+0000866C  4EF9 00008638                     80  	JMP	CK
+00008672                                    81  
+00008672  B23C 0004                         82  Z2	CMP.B		#TOTCAR,D1
+00008676  6600 001A                         83  	BNE	INC
+0000867A  5202                              84  	ADDI.B		#1,D2
+0000867C  13C2 00008027                     85  	MOVE.B	D2,MB
+00008682  123C 0000                         86  	MOVE.B	#0,D1
+00008686  13C1 0000802A                     87  	MOVE.B	D1,CARB
+0000868C  4EF9 00008640                     88  	JMP	Z1
+00008692                                    89  
+00008692  1390 4000                         90  INC	MOVE.B	(A0),(A1,D4)
+00008696  5204                              91  	ADDI.B		#1,D4
+00008698  13C4 00008018                     92  	MOVE.B	D4,IB
+0000869E  5201                              93  	ADDI.B		#1,D1
+000086A0  13C1 0000802A                     94  	MOVE.B	D1,CARB
+000086A6                                    95  
+000086A6  245F                              96  EOM	MOVE.L	(A7)+,A2
+000086A8  281F                              97  	MOVE.L	(A7)+,D4
+000086AA  261F                              98  	MOVE.L	(A7)+,D3
+000086AC  225F                              99  	MOVE.L	(A7)+,A1
+000086AE  205F                             100  	MOVE.L	(A7)+,A0
+000086B0  221F                             101  	MOVE.L	(A7)+,D1
+000086B2  201F                             102  	MOVE.L	(A7)+,D0
+000086B4                                   103  
+000086B4  4E73                             104  	RTE
+000086B6                                   105  ***************************************************************
+000086B6                                   106  *Interruzione relativa alla PIA che riceve dal nodo C -|- C ha priorita Maggiore rispetto a B
+000086B6                                   107  ****************************************************************
+00008700                                   108  	ORG	$8700
+00008700  2F00                             109  INT2	MOVE.L	D0,-(A7)
+00008702  2F01                             110  	MOVE.L	D1,-(A7)
+00008704  2F08                             111  	MOVE.L	A0,-(A7)
+00008706  2F09                             112  	MOVE.L	A1,-(A7)
+00008708  2F03                             113  	MOVE.L	D3,-(A7)
+0000870A  2F04                             114  	MOVE.L	D4,-(A7)
+0000870C                                   115  
+0000870C  207C 00002008                    116  	MOVEA.L	#PIADAC,A0	;Indirizzo del registro dato PIA porto A collegata al nodo C
+00008712  43F9 0000801A                    117  	LEA		MESC,A1	;Indirizzo di destinazione del messaggio
+00008718  1039 0000802B                    118  	MOVE.B	K,D0		;Numero iterazione
+0000871E  1239 00008029                    119  	MOVE.B	CARC,D1	;Caratteri ricevuti da C
+00008724  1439 00008028                    120  	MOVE.B	MC,D2		;Messaggi ricevuti da C
+0000872A  1639 00008027                    121  	MOVE.B	MB,D3		;Messaggi ricevuti da B
+00008730  1839 00008026                    122  	MOVE.B	IC,D4		;Offset Messaggi C
+00008736                                   123  
+00008736                                   124  
+00008736  B03C 0003                        125  CK1	CMP.B		#TOTK,D0
+0000873A  6700 0068                        126  	BEQ	EOM1
+0000873E                                   127  
+0000873E  B43C 0001                        128  Z3	CMP.B		#TOTC,D2
+00008742  6600 002C                        129  	BNE	Z4
+00008746  B63C 0002                        130  	CMP.B		#TOTB,D3	
+0000874A  6600 0058                        131  	BNE	EOM1
+0000874E  143C 0000                        132  	MOVE.B	#0,D2
+00008752  13C2 00008028                    133  	MOVE.B	D2,MC
+00008758  163C 0000                        134  	MOVE.B	#0,D3
+0000875C  13C3 00008027                    135  	MOVE.B	D3,MB
+00008762  5200                             136  	ADDI.B		#1,D0
+00008764  13C0 0000802B                    137  	MOVE.B	D0,K
+0000876A  4EF9 00008736                    138  	JMP	CK1
+00008770                                   139  
+00008770  B23C 0004                        140  Z4	CMP.B		#TOTCAR,D1
+00008774  6600 001A                        141  	BNE	INC1
+00008778  5202                             142  	ADDI.B		#1,D2
+0000877A  13C2 00008028                    143  	MOVE.B	D2,MC
+00008780  123C 0000                        144  	MOVE.B	#0,D1
+00008784  13C1 00008029                    145  	MOVE.B	D1,CARC
+0000878A  4EF9 0000873E                    146  	JMP	Z3
+00008790                                   147  
+00008790  1390 4000                        148  INC1	MOVE.B	(A0),(A1,D4)
+00008794  5204                             149  	ADDI.B		#1,D4
+00008796  13C4 00008026                    150  	MOVE.B	D4,IC
+0000879C  5201                             151  	ADDI.B		#1,D1
+0000879E  13C1 00008029                    152  	MOVE.B	D1,CARC
+000087A4                                   153  
+000087A4  281F                             154  EOM1	MOVE.L	(A7)+,D4
+000087A6  261F                             155  	MOVE.L	(A7)+,D3
+000087A8  225F                             156  	MOVE.L	(A7)+,A1
+000087AA  205F                             157  	MOVE.L	(A7)+,A0
+000087AC  221F                             158  	MOVE.L	(A7)+,D1
+000087AE  201F                             159  	MOVE.L	(A7)+,D0
+000087B0                                   160  
+000087B0  4E73                             161  	RTE
+000087B2                                   162  
+000087B2                                   163  
+000087B2                                   164  *****************************************************
+000087B2                                   165  	END	MAIN
+
+No errors detected
+No warnings generated

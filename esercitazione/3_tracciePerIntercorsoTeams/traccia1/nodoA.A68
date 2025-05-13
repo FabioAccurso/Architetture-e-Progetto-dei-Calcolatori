@@ -3,19 +3,19 @@
 ******************************************************
 	ORG	$8000
 MESB	DS.L	6
-IB	DC.W	0
+IB	DC.B	0
 MESC	DS.L	3
-IC	DC.W	0
+IC	DC.B	0
 MB	DC.B	0
 MC	DC.B	0
 CARC	DC.B	0
 CARB	DC.B	0
 K	DC.B	0
 
-PIACAB	EQU	$2004
-PIADAB	EQU	$2005
-PIACAC		EQU	$2008
-PIADAC	EQU	$2009
+PIADAB	EQU	$2004
+PIACAB	EQU	$2005
+PIADAC	EQU	$2008
+PIACAC		EQU	$2009
 TOTK		EQU	3
 TOTB		EQU	2
 TOTC		EQU	1
@@ -25,27 +25,26 @@ TOTCAR	EQU	4
 **********************************************************************
 	ORG	$8100
 MAIN	JSR	DVIN
-	JSR	DVIN2
 
 	MOVE.W	SR,D0
 	ANDI.W	#$D8FF,D0
 	MOVE.W	D0,SR
+
 ******************************************************************
 LOOP	JMP	LOOP
 *******************************************************************
 DVIN	MOVE.B	#0,PIACAB
 	MOVE.B	#0,PIADAB
 	MOVE.B	#%00100101,PIACAB
-	RTS
-
-**********************************************************************
-DVIN2	MOVE.B	#0,PIACAC
+	MOVE.B	#0,PIACAC
 	MOVE.B	#0,PIADAC
 	MOVE.B	#%00100101,PIACAC
 	RTS
 ***************************************************************
-*Interruzione relativa alla PIA che riceve dal nodo B
+*Interruzione relativa alla PIA che riceve dal nodo B -|- B ha priorita Inferiore rispetto a C
 ****************************************************************
+* NB quando termino interazione dovro' preoccuparmi di verificare se C si era sospeso ed eventualmente riattivarlo
+*********************************************************************
 	ORG	$8600
 INT1	MOVE.L	D0,-(A7)
 	MOVE.L	D1,-(A7)
@@ -53,6 +52,7 @@ INT1	MOVE.L	D0,-(A7)
 	MOVE.L	A1,-(A7)
 	MOVE.L	D3,-(A7)
 	MOVE.L	D4,-(A7)
+	MOVE.L	A2,-(A7)
 
 	MOVEA.L	#PIADAB,A0	;Indirizzo del registro dato PIA porto A collegata al nodo B
 	LEA		MESB,A1	;Indirizzo di destinazione del messaggio
@@ -60,7 +60,7 @@ INT1	MOVE.L	D0,-(A7)
 	MOVE.B	CARB,D1	;Caratteri ricevuti da B
 	MOVE.B	MB,D2		;Messaggi ricevuti da B
 	MOVE.B	MC,D3		;Messaggi ricevuti da C
-	MOVE.W	IB,D4		;Offset Messaggi B
+	MOVE.B	IB,D4		;Offset Messaggi B
 
 
 CK	CMP.B		#TOTK,D0
@@ -76,6 +76,7 @@ CC	CMP.B		#TOTC,D3	;Se B ha finito e anche C ha finito mi preoccupo in questa in
 	MOVE.B	D3,MC
 	ADDI.B		#1,D0
 	MOVE.B	D0,K
+	*----------------------------------------------------*QUI DEVO CONTROLLARE SE C SI E' SOSPESO
 	JMP	CK
 
 Z2	CMP.B		#TOTCAR,D1
@@ -89,8 +90,11 @@ Z2	CMP.B		#TOTCAR,D1
 INC	MOVE.B	(A0),(A1,D4)
 	ADDI.B		#1,D4
 	MOVE.B	D4,IB
+	ADDI.B		#1,D1
+	MOVE.B	D1,CARB
 
-EOM	MOVE.L	(A7)+,D4
+EOM	MOVE.L	(A7)+,A2
+	MOVE.L	(A7)+,D4
 	MOVE.L	(A7)+,D3
 	MOVE.L	(A7)+,A1
 	MOVE.L	(A7)+,A0
@@ -99,14 +103,67 @@ EOM	MOVE.L	(A7)+,D4
 
 	RTE
 ***************************************************************
-*Interruzione relativa alla PIA che riceve dal nodo C
+*Interruzione relativa alla PIA che riceve dal nodo C -|- C ha priorita Maggiore rispetto a B
 ****************************************************************
 	ORG	$8700
-INT2
-	*Uguale a quella di B ma con 1 solo messaggio
+INT2	MOVE.L	D0,-(A7)
+	MOVE.L	D1,-(A7)
+	MOVE.L	A0,-(A7)
+	MOVE.L	A1,-(A7)
+	MOVE.L	D3,-(A7)
+	MOVE.L	D4,-(A7)
+
+	MOVEA.L	#PIADAC,A0	;Indirizzo del registro dato PIA porto A collegata al nodo C
+	LEA		MESC,A1	;Indirizzo di destinazione del messaggio
+	MOVE.B	K,D0		;Numero iterazione
+	MOVE.B	CARC,D1	;Caratteri ricevuti da C
+	MOVE.B	MC,D2		;Messaggi ricevuti da C
+	MOVE.B	MB,D3		;Messaggi ricevuti da B
+	MOVE.B	IC,D4		;Offset Messaggi C
+
+
+CK1	CMP.B		#TOTK,D0
+	BEQ	EOM1
+
+Z3	CMP.B		#TOTC,D2
+	BNE	Z4
+	CMP.B		#TOTB,D3	
+	BNE	EOM1
+	MOVE.B	#0,D2
+	MOVE.B	D2,MC
+	MOVE.B	#0,D3
+	MOVE.B	D3,MB
+	ADDI.B		#1,D0
+	MOVE.B	D0,K
+	JMP	CK1
+
+Z4	CMP.B		#TOTCAR,D1
+	BNE	INC1
+	ADDI.B		#1,D2
+	MOVE.B	D2,MC
+	MOVE.B	#0,D1
+	MOVE.B	D1,CARC
+	JMP	Z3
+
+INC1	MOVE.B	(A0),(A1,D4)
+	ADDI.B		#1,D4
+	MOVE.B	D4,IC
+	ADDI.B		#1,D1
+	MOVE.B	D1,CARC
+
+EOM1	MOVE.L	(A7)+,D4
+	MOVE.L	(A7)+,D3
+	MOVE.L	(A7)+,A1
+	MOVE.L	(A7)+,A0
+	MOVE.L	(A7)+,D1
+	MOVE.L	(A7)+,D0
+
+	RTE
 
 
 *****************************************************
 	END	MAIN
+
+
 
 

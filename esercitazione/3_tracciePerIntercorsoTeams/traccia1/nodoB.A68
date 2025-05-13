@@ -3,9 +3,9 @@
 ******************************************************
 	ORG	$8000
 MSG	DC.B	1,2,3,4
-IDX	DC.B	0
-PIADB	EQU	2006
-PIACB	EQU	2007
+IDX	DC.B	1
+PIADB	EQU	$2006
+PIACB	EQU	$2007
 N	EQU 	4
 
 
@@ -15,7 +15,11 @@ MAIN	JSR		DVOUT		;Inizializzazione della PIA
 	MOVE.W	SR,D0
 	ANDI.W	#$D8FF,D0	;Smaschera interruzioni 
 	MOVE.W	D0,SR
-
+	
+	MOVEA.L	#MSG,A1
+	MOVEA.L	#PIADB,A0
+	MOVE.B	(A1),D1		; Lettura Fittizia
+	MOVE.B	(A1),(A0)	; Scrittura
 
 *********************************************
 LOOP	JMP	LOOP
@@ -40,7 +44,7 @@ INT	MOVE.L	D0,-(A7)
 	MOVE.B	#0,D0
 
 SEND	MOVE.B	(A1),D1		; Lettura Fittizia
-	MOVE.B	(A1,D0),(A0)	; Lettura
+	MOVE.B	(A1,D0),(A0)	; Scrittura
 	ADDI.B		#1,D0		; Incremento contatore e aggiorno
 	MOVE.B	D0,IDX
 
@@ -51,3 +55,7 @@ FIN	MOVE.L	(A7)+,A1
 
 	RTE
 
+
+
+*****************************************************
+	END	MAIN
