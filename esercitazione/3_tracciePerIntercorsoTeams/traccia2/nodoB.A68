@@ -2,7 +2,7 @@
 *	Sistema B- Trasmettitore
 ******************************************************
 	ORG	$8000
-KEEP	DC.B	1
+KEEP	DC.B	0
 MSG	DC.B	1,2,3,4
 IDX	DC.B	1
 PIADB	EQU	$2006

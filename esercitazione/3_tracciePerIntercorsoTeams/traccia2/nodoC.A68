@@ -1,8 +1,8 @@
 ******************************************************
-*	Sistema B- Trasmettitore
+*	Sistema C - Trasmettitore
 ******************************************************
 	ORG	$8000
-KEEP	DC.B	1
+KEEP	DC.B	0
 MSG	DC.B	1,2,3,4
 IDX	DC.B	1
 PIADB	EQU	$2006
@@ -16,13 +16,11 @@ MAIN	JSR		DVOUT		;Inizializzazione della PIA
 	MOVE.W	SR,D0
 	ANDI.W	#$D8FF,D0	;Smaschera interruzioni 
 	MOVE.W	D0,SR
-	
+
 	MOVEA.L	#MSG,A1
 	MOVEA.L	#PIADB,A0
 	MOVE.B	(A1),D1		; Lettura Fittizia
 	MOVE.B	(A1),(A0)	; Scrittura
-
-
 *********************************************
 LOOP	JMP	LOOP
 *********************************************
@@ -41,7 +39,7 @@ INT	MOVE.L	D0,-(A7)
 	MOVEA.L	#PIADB,A0
 	MOVEA.L	#MSG,A1
 	MOVE.B	IDX,D0
-	
+
 LOKE	MOVE.B	KEEP,D2
 	CMP.B		#1,D2
 	BEQ	LOKE
@@ -67,4 +65,5 @@ FIN	MOVE.L	(A7)+,A1
 
 *****************************************************
 	END	MAIN
+
 

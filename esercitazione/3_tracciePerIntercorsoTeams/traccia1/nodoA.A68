@@ -43,7 +43,7 @@ DVIN	MOVE.B	#0,PIACAB
 ***************************************************************
 *Interruzione relativa alla PIA che riceve dal nodo B -|- B ha priorita Inferiore rispetto a C
 ****************************************************************
-* NB quando termino interazione dovro' preoccuparmi di verificare se C si era sospeso ed eventualmente riattivarlo
+* NB quando termino messaggi da B per questa iterazione dovro' preoccuparmi di verificare se C si era sospeso ed eventualmente riattivarlo
 *********************************************************************
 	ORG	$8600
 INT1	MOVE.L	D0,-(A7)
@@ -69,7 +69,9 @@ CK	CMP.B		#TOTK,D0
 
 Z1	CMP.B		#TOTB,D2
 	BNE	Z2
-CC	MOVE.B	#0,D2
+CC	CMP.B		#TOTC,D3	; Verifico se anche C ha finito per questa iterazione. Se si azzero messaggi, incremento k e vedo se c si è sospeso. Altrimenti vedo solo se C è sospeso
+	BNE	CE
+	MOVE.B	#0,D2
 	MOVE.B	D2,MB
 	MOVE.B	#0,D3
 	MOVE.B	D3,MC
@@ -77,9 +79,9 @@ CC	MOVE.B	#0,D2
 	MOVE.B	D0,K
 	
 	* ---> Controllo se C si e' sospeso ed eventualmente lo servo
-	MOVE.B PIACAC,D5
+CE	MOVE.B PIACAC,D5
 	ANDI.B  #$80,D5
-	BEQ	CK
+	BEQ	EOM
 	JMP	EIC
 
 
@@ -146,6 +148,8 @@ CK1	CMP.B		#TOTK,D0
 
 Z3	CMP.B		#TOTC,D2
 	BNE	Z4
+CC1	CMP.B		#TOTB,D3	; Verifico se anche B ha finito per questa iterazione. Se si azzero messaggi, incremento k e vedo se B si è sospeso. Altrimenti vedo solo se B è sospeso
+	BNE	CE1
 	MOVE.B	#0,D2
 	MOVE.B	D2,MC
 	MOVE.B	#0,D3
@@ -154,9 +158,9 @@ Z3	CMP.B		#TOTC,D2
 	MOVE.B	D0,K
 	
 	* ---> Controllo se B si e' sospeso ed eventualmente lo servo
-	MOVE.B PIACAB,D5
+CE1	MOVE.B PIACAB,D5
 	ANDI.B  #$80,D5
-	BEQ	CK1
+	BEQ	EOM1
 	JMP	EIB
 
 Z4	CMP.B		#TOTCAR,D1
@@ -198,6 +202,8 @@ EOM1	MOVE.L	(A7)+,A2
 
 *****************************************************
 	END	MAIN
+
+
 
 
 

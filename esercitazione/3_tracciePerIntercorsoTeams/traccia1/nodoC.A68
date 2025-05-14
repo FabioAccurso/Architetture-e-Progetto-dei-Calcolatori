@@ -2,6 +2,7 @@
 *	Sistema C - Trasmettitore
 ******************************************************
 	ORG	$8000
+KEEP	DC.B	1
 MSG	DC.B	1,2,3,4
 IDX	DC.B	1
 PIADB	EQU	$2006
@@ -31,12 +32,17 @@ DVOUT		MOVE.B	#0,PIACB
 	ORG	$8700
 INT	MOVE.L	D0,-(A7)
 	MOVE.L	D1,-(A7)
+	MOVE.L	D2,-(A7)
 	MOVE.L	A0,-(A7)
 	MOVE.L	A1,-(A7)
 
 	MOVEA.L	#PIADB,A0
 	MOVEA.L	#MSG,A1
 	MOVE.B	IDX,D0
+
+LOKE	MOVE.B	KEEP,D2
+	CMP.B		#1,D2
+	BEQ	LOKE
 
 	CMP.B		#N,D0
 	BNE	SEND
@@ -49,6 +55,7 @@ SEND	MOVE.B	(A1),D1		; Lettura Fittizia
 
 FIN	MOVE.L	(A7)+,A1
 	MOVE.L	(A7)+,A0
+	MOVE.L	(A7)+,D2
 	MOVE.L	(A7)+,D1
 	MOVE.L	(A7)+,D0
 
@@ -58,4 +65,5 @@ FIN	MOVE.L	(A7)+,A1
 
 *****************************************************
 	END	MAIN
+
 
