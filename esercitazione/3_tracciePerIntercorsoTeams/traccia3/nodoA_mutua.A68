@@ -1,0 +1,298 @@
+**********************************************************
+*	Sistema A - Ricevitore (con mutua esclusione)
+***********************************************************
+* AREA DATI
+******************************************
+	ORG $8000
+*Variabili
+MSGB	DS.L	10	; Messaggi ricevuti da B 
+MSGC	DS.L	5	; Messaggi ricevuti da C
+IDXB	DC.B	0	; Offset Messaggi B
+IDXC	DC.B	0	; Offset Messaggi C
+CB	DC.B	0	; Contatore caratteri messaggio B
+CC	DC.B	0	; Contatore caratteri messaggio C
+MB	DC.B	0	; Messaggi per iterazione B
+MC	DC.B	0	; Messaggi per iterazione C
+K	DC.B	0	; Contatore Iterazioni
+POS	DC.B	-1	; Variabile Possesso
+SEM	DC.B	0	; Semaforo per controllare accesso alla variabile Possesso (POS)
+
+
+*Macro
+TOTK		EQU	3
+N		EQU	4
+TOTMB	EQU	2
+TOTMC		EQU	1
+PIADAB	EQU	$2004
+PIACAB	EQU	$2005
+PIADAC	EQU	$2008
+PIACAC		EQU	$2009
+
+*******************************************************************	
+* AREA MAIN
+*******************************************
+MAIN	JSR	DVIN
+	MOVE.W	SR,D0
+	ANDI.W	#$D8FF,D0
+	MOVE.W	D0,SR
+
+******************************************************************
+LOOP	JMP	LOOP
+*****************************************************************
+* INIZIALIZZAZIONE PIA-B E PIA-C
+*****************************************
+DVIN	MOVE.B	#$00,PIACAB
+	MOVE.B	#$00,PIADAB
+	MOVE.B	#%00100101,PIACAB
+	MOVE.B	#$00,PIACAC
+	MOVE.B	#$00,PIADAC
+	MOVE.B	#%00100101,PIACAC
+	RTS
+****************************************************************
+* Interruzione relativa a recezione caratteri da B
+****************************************************
+** PseudoCodice:
+** if(k<TotK)
+** 	if(lock=0) 					//se il lock è libero (=0)
+**		lock=1
+** 		if(possesso != 1 && msgB<2) 	// Quindi se possesso è di B o è libero e B non ha finito
+**			possesso=0
+**			lock=0
+**			messB+offsetB = datoPIAB
+**			offsetB++
+**			caratB++
+**			if( caratB = TotB)
+**				msgB++
+**				if (msgC=1){
+**					k++
+**					msgB=0
+**					msgC=0
+**					caratB=0
+**					caratC=0
+**				}
+**				if( K<TotK )
+**					if(C sospeso){
+**						possesso = 1
+**						messC+offsetC = datoPIAC
+**						offsetC++
+**						caratC++	
+**					}
+**					else{
+**						possesso = -1
+**					}
+**				}
+** 		else{					// ovvero se possesso è di C
+**			// Niente per B ma sblocco lock e controllo se C si è sospeso mentre lock era bloccato
+**			lock = 0
+**			if(C sospeso ){
+**				possesso = 1
+**				messC+offsetC = datoPIAC
+**				offsetC++
+**				caratC++	
+**			}
+**			exit
+**	else{						//ovvero se il lock non è libero (=1) 
+**		 exit
+**	}
+******************************************************
+	ORG	$8600
+INTB	MOVEM.L	D0-D5/A0-A2,-(A7)		; Move Multipla per fare push su stack dei registri
+
+	MOVE.B	K,D0
+	CMP.B		#TOTK,D0
+	BEQ	EOM
+	
+	LEA	MSGB,A0
+	LEA	SEM,A1
+	MOVEA.L	#PIADAB,A2
+	MOVE.B	PIACAB,D5
+	MOVE.B	IDXB,D1
+	MOVE.B	CB,D2
+	MOVE.B	MB,D3
+	MOVE.B	POS,D4
+
+	TAS	(A1)	
+	BNE	EOM
+	CMP.B		#1,D4
+	BEQ	NP
+	CMP.B		#TOTMB,D3
+	BEQ	NP
+	MOVE.B	#0,POS	; Metto Possesso a 0 -> B
+	MOVE.B	#0,(A1)		; Sblocco Lock
+	MOVE.B	(A2),(A0,D1)
+	ADDI.B		#1,D2
+	ADDI.B		#1,D1
+	MOVE.B	D2,CB
+	MOVE.B	D1,IDXB
+
+	CMP.W	#N,D2
+	BNE	EOM
+	ADDI.B		#1,D3
+	MOVE.B	D3,MB
+	MOVE.B	#0,CB
+
+	CMP.B		#TOTMB,D3
+	BNE	EOM
+	MOVE.B	MC,D3	
+	CMP.B		#TOTMC,D3
+	BNE	NY
+	ADDI.B		#1,D0
+	MOVE.B	D0,K
+	MOVE.B	#0,MB
+	MOVE.B	#0,MC
+	MOVE.B	#0,CC
+	
+NY	CMP.B		#TOTK,D0
+	BEQ	EOM
+	MOVE.B	PIACAC,D5
+	ANDI.B 	#$80,D5
+	BNE	LC
+	MOVE.B	#-1,POS
+	JMP	EOM
+
+NP	MOVE.B	PIACAC,D5
+	MOVE.B	#0,(A1)	
+	ANDI.B 	#$80,D5
+	BEQ	EOM
+LC	MOVE.B	#1,POS
+	MOVEA.L	#PIADAC,A2
+	MOVEA.L	#MSGC,A0
+	MOVE.B	IDXC,D1
+	MOVE.B	CC,D2
+	MOVE.B	(A2),(A0,D1)
+	ADDI.B		#1,D2
+	ADDI.B		#1,D1
+	MOVE.B	D2,CC
+	MOVE.B	D1,IDXC
+	CMP.B		#N,CC
+	BNE	EOM
+	MOVE.B	MC,D3
+	ADDI.B		#1,D3
+	MOVE.B	D3,MC
+	MOVE.B	#0,CC
+	CMP.B		#TOTMC,D3
+	BNE	EOM
+	MOVE.B	#-1,POS
+	MOVE.B	MB,D3
+	CMP.B		#TOTMB,D3
+	BNE	EOM
+	ADDI.B		#1,D0
+	MOVE.B	D0,K
+	MOVE.B	#0,MB
+	MOVE.B	#0,MC
+	MOVE.B	#0,CC
+	MOVE.B	#0,CB
+	JMP	EOM
+
+
+LEOM	MOVE.B	#0,(A1)
+EOM	MOVEM.L	(A7)+,D0-D5/A0-A2
+
+	RTE
+****************************************************************
+* Interruzione relativa a recezione caratteri da C
+*****************************************************
+** PseudoCodice:
+** 
+** Duale a quello per l'interruzione da B, con le stesse tipologie di conflitti, ma relativa a C
+******************************************************
+	ORG	$8800
+INTC	MOVEM.L	D0-D5/A0-A2,-(A7)		; Move Multipla per fare push su stack dei registri
+
+	MOVE.B	K,D0
+	CMP.B		#TOTK,D0
+	BEQ	EOM1
+	
+	LEA	MSGC,A0
+	LEA	SEM,A1
+	MOVEA.L	#PIADAC,A2
+	MOVE.B	PIACAC,D5
+	MOVE.B	IDXC,D1
+	MOVE.B	CC,D2
+	MOVE.B	MC,D3
+	MOVE.B	POS,D4
+
+	TAS	(A1)	
+	BNE	EOM1
+	CMP.B		#0,D4
+	BEQ	NP1
+	CMP.B		#TOTMC,D3
+	BEQ	NP1
+	MOVE.B	#1,POS	; Metto Possesso a 1 ->C
+	MOVE.B	#0,(A1)		; Sblocco Lock
+	MOVE.B	(A2),(A0,D1)
+	ADDI.B		#1,D2
+	ADDI.B		#1,D1
+	MOVE.B	D2,CC
+	MOVE.B	D1,IDXC
+
+	CMP.W	#N,D2
+	BNE	EOM1
+	ADDI.B		#1,D3
+	MOVE.B	D3,MC
+	MOVE.B	#0,CC
+
+	MOVE.B	MB,D3	
+	CMP.B		#TOTMB,D3
+	BNE	NY1
+	ADDI.B		#1,D0
+	MOVE.B	D0,K
+	MOVE.B	#0,MB
+	MOVE.B	#0,MC
+	MOVE.B	#0,CC
+	
+NY1	CMP.B		#TOTK,D0
+	BEQ	EOM1
+	MOVE.B	PIACAB,D5
+	ANDI.B 	#$80,D5
+	BNE	LB
+	MOVE.B	#-1,POS
+	JMP	EOM1
+
+NP1	MOVE.B	PIACAB,D5
+	MOVE.B	#0,(A1)
+	ANDI.B 	#$80,D5
+	BEQ	EOM1
+LB	MOVE.B	#0,POS
+	MOVEA.L	#PIADAB,A2
+	LEA		MSGB,A0
+	MOVE.B	IDXB,D1
+	MOVE.B	CB,D2
+	MOVE.B	(A2),(A0,D1)
+	ADDI.B		#1,D2
+	ADDI.B		#1,D1
+	MOVE.B	D2,CB
+	MOVE.B	D1,IDXB
+	CMP.B		#N,CB
+	BNE	EOM1
+	MOVE.B	MB,D3
+	ADDI.B		#1,D3
+	MOVE.B	D3,MB
+	MOVE.B	#0,CB
+	CMP.B		#TOTMB,D3
+	BNE	EOM1
+	MOVE.B	#-1,POS
+	MOVE.B	MC,D3
+	CMP.B		#TOTMC,D3
+	BNE	EOM1
+	ADDI.B		#1,D0
+	MOVE.B	D0,K
+	MOVE.B	#0,MB
+	MOVE.B	#0,MC
+	MOVE.B	#0,CC
+	MOVE.B	#0,CB
+	JMP	EOM1
+
+
+LEOM1	MOVE.B	#0,(A1)
+EOM1	MOVEM.L	(A7)+,D0-D5/A0-A2
+
+	RTE
+********************************************************************
+	END	MAIN
+
+
+
+
+
+

@@ -1,0 +1,295 @@
+00000000                                     1  **********************************************************
+00000000                                     2  *	Sistema A - Ricevitore (con mutua esclusione)
+00000000                                     3  ***********************************************************
+00000000                                     4  * AREA DATI
+00000000                                     5  ******************************************
+00008000                                     6  	ORG $8000
+00008000                                     7  *Variabili
+00008000                                     8  MSGB	DS.L	10	; Messaggi ricevuti da B 
+00008028                                     9  MSGC	DS.L	5	; Messaggi ricevuti da C
+0000803C  00                                10  IDXB	DC.B	0	; Offset Messaggi B
+0000803D  00                                11  IDXC	DC.B	0	; Offset Messaggi C
+0000803E  00                                12  CB	DC.B	0	; Contatore caratteri messaggio B
+0000803F  00                                13  CC	DC.B	0	; Contatore caratteri messaggio C
+00008040  00                                14  MB	DC.B	0	; Messaggi per iterazione B
+00008041  00                                15  MC	DC.B	0	; Messaggi per iterazione C
+00008042  00                                16  K	DC.B	0	; Contatore Iterazioni
+00008043  FF                                17  POS	DC.B	-1	; Variabile Possesso
+00008044  00                                18  SEM	DC.B	0	; Semaforo per controllare accesso alla variabile Possesso (POS)
+00008045                                    19  
+00008045                                    20  
+00008045                                    21  *Macro
+00008045  =00000003                         22  TOTK		EQU	3
+00008045  =00000004                         23  N		EQU	4
+00008045  =00000002                         24  TOTMB	EQU	2
+00008045  =00000001                         25  TOTMC		EQU	1
+00008045  =00002004                         26  PIADAB	EQU	$2004
+00008045  =00002005                         27  PIACAB	EQU	$2005
+00008045  =00002008                         28  PIADAC	EQU	$2008
+00008045  =00002009                         29  PIACAC		EQU	$2009
+00008045                                    30  
+00008045                                    31  *******************************************************************	
+00008045                                    32  * AREA MAIN
+00008045                                    33  *******************************************
+00008046  4EB9 0000805A                     34  MAIN	JSR	DVIN
+0000804C  40C0                              35  	MOVE.W	SR,D0
+0000804E  0240 D8FF                         36  	ANDI.W	#$D8FF,D0
+00008052  46C0                              37  	MOVE.W	D0,SR
+00008054                                    38  
+00008054                                    39  ******************************************************************
+00008054  4EF9 00008054                     40  LOOP	JMP	LOOP
+0000805A                                    41  *****************************************************************
+0000805A                                    42  * INIZIALIZZAZIONE PIA-B E PIA-C
+0000805A                                    43  *****************************************
+0000805A  11FC 0000 2005                    44  DVIN	MOVE.B	#$00,PIACAB
+00008060  11FC 0000 2004                    45  	MOVE.B	#$00,PIADAB
+00008066  11FC 0025 2005                    46  	MOVE.B	#%00100101,PIACAB
+0000806C  11FC 0000 2009                    47  	MOVE.B	#$00,PIACAC
+00008072  11FC 0000 2008                    48  	MOVE.B	#$00,PIADAC
+00008078  11FC 0025 2009                    49  	MOVE.B	#%00100101,PIACAC
+0000807E  4E75                              50  	RTS
+00008080                                    51  ****************************************************************
+00008080                                    52  * Interruzione relativa a recezione caratteri da B
+00008080                                    53  ****************************************************
+00008080                                    54  ** PseudoCodice:
+00008080                                    55  ** if(k<TotK)
+00008080                                    56  ** 	if(lock=0) 					//se il lock è libero (=0)
+00008080                                    57  **		lock=1
+00008080                                    58  ** 		if(possesso != 1 && msgB<2) 	// Quindi se possesso è di B o è libero e B non ha finito
+00008080                                    59  **			possesso=0
+00008080                                    60  **			lock=0
+00008080                                    61  **			messB+offsetB = datoPIAB
+00008080                                    62  **			offsetB++
+00008080                                    63  **			caratB++
+00008080                                    64  **			if( caratB = TotB)
+00008080                                    65  **				msgB++
+00008080                                    66  **				if (msgC=1){
+00008080                                    67  **					k++
+00008080                                    68  **					msgB=0
+00008080                                    69  **					msgC=0
+00008080                                    70  **					caratB=0
+00008080                                    71  **					caratC=0
+00008080                                    72  **				}
+00008080                                    73  **				if( K<TotK )
+00008080                                    74  **					if(C sospeso){
+00008080                                    75  **						possesso = 1
+00008080                                    76  **						messC+offsetC = datoPIAC
+00008080                                    77  **						offsetC++
+00008080                                    78  **						caratC++	
+00008080                                    79  **					}
+00008080                                    80  **					else{
+00008080                                    81  **						possesso = -1
+00008080                                    82  **					}
+00008080                                    83  **				}
+00008080                                    84  ** 		else{					// ovvero se possesso è di C
+00008080                                    85  **			// Niente per B ma sblocco lock e controllo se C si è sospeso mentre lock era bloccato
+00008080                                    86  **			lock = 0
+00008080                                    87  **			if(C sospeso ){
+00008080                                    88  **				possesso = 1
+00008080                                    89  **				messC+offsetC = datoPIAC
+00008080                                    90  **				offsetC++
+00008080                                    91  **				caratC++	
+00008080                                    92  **			}
+00008080                                    93  **			exit
+00008080                                    94  **	else{						//ovvero se il lock non è libero (=1) 
+00008080                                    95  **		 exit
+00008080                                    96  **	}
+00008080                                    97  ******************************************************
+00008600                                    98  	ORG	$8600
+00008600  48E7 FCE0                         99  INTB	MOVEM.L	D0-D5/A0-A2,-(A7)		; Move Multipla per fare push su stack dei registri
+00008604                                   100  
+00008604  1039 00008042                    101  	MOVE.B	K,D0
+0000860A  B03C 0003                        102  	CMP.B		#TOTK,D0
+0000860E  6700 018C                        103  	BEQ	EOM
+00008612                                   104  	
+00008612  41F9 00008000                    105  	LEA	MSGB,A0
+00008618  43F9 00008044                    106  	LEA	SEM,A1
+0000861E  247C 00002004                    107  	MOVEA.L	#PIADAB,A2
+00008624  1A38 2005                        108  	MOVE.B	PIACAB,D5
+00008628  1239 0000803C                    109  	MOVE.B	IDXB,D1
+0000862E  1439 0000803E                    110  	MOVE.B	CB,D2
+00008634  1639 00008040                    111  	MOVE.B	MB,D3
+0000863A  1839 00008043                    112  	MOVE.B	POS,D4
+00008640                                   113  
+00008640  4AD1                             114  	TAS	(A1)	
+00008642  6600 0158                        115  	BNE	EOM
+00008646  B83C 0001                        116  	CMP.B		#1,D4
+0000864A  6700 009A                        117  	BEQ	NP
+0000864E  B63C 0002                        118  	CMP.B		#TOTMB,D3
+00008652  6700 0092                        119  	BEQ	NP
+00008656  13FC 0000 00008043               120  	MOVE.B	#0,POS	; Metto Possesso a 0 -> B
+0000865E  12BC 0000                        121  	MOVE.B	#0,(A1)		; Sblocco Lock
+00008662  1192 1000                        122  	MOVE.B	(A2),(A0,D1)
+00008666  5202                             123  	ADDI.B		#1,D2
+00008668  5201                             124  	ADDI.B		#1,D1
+0000866A  13C2 0000803E                    125  	MOVE.B	D2,CB
+00008670  13C1 0000803C                    126  	MOVE.B	D1,IDXB
+00008676                                   127  
+00008676  B47C 0004                        128  	CMP.W	#N,D2
+0000867A  6600 0120                        129  	BNE	EOM
+0000867E  5203                             130  	ADDI.B		#1,D3
+00008680  13C3 00008040                    131  	MOVE.B	D3,MB
+00008686  13FC 0000 0000803E               132  	MOVE.B	#0,CB
+0000868E                                   133  
+0000868E  B63C 0002                        134  	CMP.B		#TOTMB,D3
+00008692  6600 0108                        135  	BNE	EOM
+00008696  1639 00008041                    136  	MOVE.B	MC,D3	
+0000869C  B63C 0001                        137  	CMP.B		#TOTMC,D3
+000086A0  6600 0022                        138  	BNE	NY
+000086A4  5200                             139  	ADDI.B		#1,D0
+000086A6  13C0 00008042                    140  	MOVE.B	D0,K
+000086AC  13FC 0000 00008040               141  	MOVE.B	#0,MB
+000086B4  13FC 0000 00008041               142  	MOVE.B	#0,MC
+000086BC  13FC 0000 0000803F               143  	MOVE.B	#0,CC
+000086C4                                   144  	
+000086C4  B03C 0003                        145  NY	CMP.B		#TOTK,D0
+000086C8  6700 00D2                        146  	BEQ	EOM
+000086CC  1A38 2009                        147  	MOVE.B	PIACAC,D5
+000086D0  0205 0080                        148  	ANDI.B 	#$80,D5
+000086D4  6600 0020                        149  	BNE	LC
+000086D8  13FC 00FF 00008043               150  	MOVE.B	#-1,POS
+000086E0  4EF9 0000879C                    151  	JMP	EOM
+000086E6                                   152  
+000086E6  1A38 2009                        153  NP	MOVE.B	PIACAC,D5
+000086EA  12BC 0000                        154  	MOVE.B	#0,(A1)	
+000086EE  0205 0080                        155  	ANDI.B 	#$80,D5
+000086F2  6700 00A8                        156  	BEQ	EOM
+000086F6  13FC 0001 00008043               157  LC	MOVE.B	#1,POS
+000086FE  247C 00002008                    158  	MOVEA.L	#PIADAC,A2
+00008704  207C 00008028                    159  	MOVEA.L	#MSGC,A0
+0000870A  1239 0000803D                    160  	MOVE.B	IDXC,D1
+00008710  1439 0000803F                    161  	MOVE.B	CC,D2
+00008716  1192 1000                        162  	MOVE.B	(A2),(A0,D1)
+0000871A  5202                             163  	ADDI.B		#1,D2
+0000871C  5201                             164  	ADDI.B		#1,D1
+0000871E  13C2 0000803F                    165  	MOVE.B	D2,CC
+00008724  13C1 0000803D                    166  	MOVE.B	D1,IDXC
+0000872A  0C39 0004 0000803F               167  	CMP.B		#N,CC
+00008732  6600 0068                        168  	BNE	EOM
+00008736  1639 00008041                    169  	MOVE.B	MC,D3
+0000873C  5203                             170  	ADDI.B		#1,D3
+0000873E  13C3 00008041                    171  	MOVE.B	D3,MC
+00008744  13FC 0000 0000803F               172  	MOVE.B	#0,CC
+0000874C  B63C 0001                        173  	CMP.B		#TOTMC,D3
+00008750  6600 004A                        174  	BNE	EOM
+00008754  13FC 00FF 00008043               175  	MOVE.B	#-1,POS
+0000875C  1639 00008040                    176  	MOVE.B	MB,D3
+00008762  B63C 0002                        177  	CMP.B		#TOTMB,D3
+00008766  6600 0034                        178  	BNE	EOM
+0000876A  5200                             179  	ADDI.B		#1,D0
+0000876C  13C0 00008042                    180  	MOVE.B	D0,K
+00008772  13FC 0000 00008040               181  	MOVE.B	#0,MB
+0000877A  13FC 0000 00008041               182  	MOVE.B	#0,MC
+00008782  13FC 0000 0000803F               183  	MOVE.B	#0,CC
+0000878A  13FC 0000 0000803E               184  	MOVE.B	#0,CB
+00008792  4EF9 0000879C                    185  	JMP	EOM
+00008798                                   186  
+00008798                                   187  
+00008798  12BC 0000                        188  LEOM	MOVE.B	#0,(A1)
+0000879C  4CDF 073F                        189  EOM	MOVEM.L	(A7)+,D0-D5/A0-A2
+000087A0                                   190  
+000087A0  4E73                             191  	RTE
+000087A2                                   192  ****************************************************************
+000087A2                                   193  * Interruzione relativa a recezione caratteri da C
+000087A2                                   194  *****************************************************
+000087A2                                   195  ** PseudoCodice:
+000087A2                                   196  ** 
+000087A2                                   197  ** Duale a quello per l'interruzione da B, con le stesse tipologie di conflitti, ma relativa a C
+000087A2                                   198  ******************************************************
+00008800                                   199  	ORG	$8800
+00008800  48E7 FCE0                        200  INTC	MOVEM.L	D0-D5/A0-A2,-(A7)		; Move Multipla per fare push su stack dei registri
+00008804                                   201  
+00008804  1039 00008042                    202  	MOVE.B	K,D0
+0000880A  B03C 0003                        203  	CMP.B		#TOTK,D0
+0000880E  6700 0184                        204  	BEQ	EOM1
+00008812                                   205  	
+00008812  41F9 00008028                    206  	LEA	MSGC,A0
+00008818  43F9 00008044                    207  	LEA	SEM,A1
+0000881E  247C 00002008                    208  	MOVEA.L	#PIADAC,A2
+00008824  1A38 2009                        209  	MOVE.B	PIACAC,D5
+00008828  1239 0000803D                    210  	MOVE.B	IDXC,D1
+0000882E  1439 0000803F                    211  	MOVE.B	CC,D2
+00008834  1639 00008041                    212  	MOVE.B	MC,D3
+0000883A  1839 00008043                    213  	MOVE.B	POS,D4
+00008840                                   214  
+00008840  4AD1                             215  	TAS	(A1)	
+00008842  6600 0150                        216  	BNE	EOM1
+00008846  B83C 0000                        217  	CMP.B		#0,D4
+0000884A  6700 0092                        218  	BEQ	NP1
+0000884E  B63C 0001                        219  	CMP.B		#TOTMC,D3
+00008852  6700 008A                        220  	BEQ	NP1
+00008856  13FC 0001 00008043               221  	MOVE.B	#1,POS	; Metto Possesso a 1 ->C
+0000885E  12BC 0000                        222  	MOVE.B	#0,(A1)		; Sblocco Lock
+00008862  1192 1000                        223  	MOVE.B	(A2),(A0,D1)
+00008866  5202                             224  	ADDI.B		#1,D2
+00008868  5201                             225  	ADDI.B		#1,D1
+0000886A  13C2 0000803F                    226  	MOVE.B	D2,CC
+00008870  13C1 0000803D                    227  	MOVE.B	D1,IDXC
+00008876                                   228  
+00008876  B47C 0004                        229  	CMP.W	#N,D2
+0000887A  6600 0118                        230  	BNE	EOM1
+0000887E  5203                             231  	ADDI.B		#1,D3
+00008880  13C3 00008041                    232  	MOVE.B	D3,MC
+00008886  13FC 0000 0000803F               233  	MOVE.B	#0,CC
+0000888E                                   234  
+0000888E  1639 00008040                    235  	MOVE.B	MB,D3	
+00008894  B63C 0002                        236  	CMP.B		#TOTMB,D3
+00008898  6600 0022                        237  	BNE	NY1
+0000889C  5200                             238  	ADDI.B		#1,D0
+0000889E  13C0 00008042                    239  	MOVE.B	D0,K
+000088A4  13FC 0000 00008040               240  	MOVE.B	#0,MB
+000088AC  13FC 0000 00008041               241  	MOVE.B	#0,MC
+000088B4  13FC 0000 0000803F               242  	MOVE.B	#0,CC
+000088BC                                   243  	
+000088BC  B03C 0003                        244  NY1	CMP.B		#TOTK,D0
+000088C0  6700 00D2                        245  	BEQ	EOM1
+000088C4  1A38 2005                        246  	MOVE.B	PIACAB,D5
+000088C8  0205 0080                        247  	ANDI.B 	#$80,D5
+000088CC  6600 0020                        248  	BNE	LB
+000088D0  13FC 00FF 00008043               249  	MOVE.B	#-1,POS
+000088D8  4EF9 00008994                    250  	JMP	EOM1
+000088DE                                   251  
+000088DE  1A38 2005                        252  NP1	MOVE.B	PIACAB,D5
+000088E2  12BC 0000                        253  	MOVE.B	#0,(A1)
+000088E6  0205 0080                        254  	ANDI.B 	#$80,D5
+000088EA  6700 00A8                        255  	BEQ	EOM1
+000088EE  13FC 0000 00008043               256  LB	MOVE.B	#0,POS
+000088F6  247C 00002004                    257  	MOVEA.L	#PIADAB,A2
+000088FC  41F9 00008000                    258  	LEA		MSGB,A0
+00008902  1239 0000803C                    259  	MOVE.B	IDXB,D1
+00008908  1439 0000803E                    260  	MOVE.B	CB,D2
+0000890E  1192 1000                        261  	MOVE.B	(A2),(A0,D1)
+00008912  5202                             262  	ADDI.B		#1,D2
+00008914  5201                             263  	ADDI.B		#1,D1
+00008916  13C2 0000803E                    264  	MOVE.B	D2,CB
+0000891C  13C1 0000803C                    265  	MOVE.B	D1,IDXB
+00008922  0C39 0004 0000803E               266  	CMP.B		#N,CB
+0000892A  6600 0068                        267  	BNE	EOM1
+0000892E  1639 00008040                    268  	MOVE.B	MB,D3
+00008934  5203                             269  	ADDI.B		#1,D3
+00008936  13C3 00008040                    270  	MOVE.B	D3,MB
+0000893C  13FC 0000 0000803E               271  	MOVE.B	#0,CB
+00008944  B63C 0002                        272  	CMP.B		#TOTMB,D3
+00008948  6600 004A                        273  	BNE	EOM1
+0000894C  13FC 00FF 00008043               274  	MOVE.B	#-1,POS
+00008954  1639 00008041                    275  	MOVE.B	MC,D3
+0000895A  B63C 0001                        276  	CMP.B		#TOTMC,D3
+0000895E  6600 0034                        277  	BNE	EOM1
+00008962  5200                             278  	ADDI.B		#1,D0
+00008964  13C0 00008042                    279  	MOVE.B	D0,K
+0000896A  13FC 0000 00008040               280  	MOVE.B	#0,MB
+00008972  13FC 0000 00008041               281  	MOVE.B	#0,MC
+0000897A  13FC 0000 0000803F               282  	MOVE.B	#0,CC
+00008982  13FC 0000 0000803E               283  	MOVE.B	#0,CB
+0000898A  4EF9 00008994                    284  	JMP	EOM1
+00008990                                   285  
+00008990                                   286  
+00008990  12BC 0000                        287  LEOM1	MOVE.B	#0,(A1)
+00008994  4CDF 073F                        288  EOM1	MOVEM.L	(A7)+,D0-D5/A0-A2
+00008998                                   289  
+00008998  4E73                             290  	RTE
+0000899A                                   291  ********************************************************************
+0000899A                                   292  	END	MAIN
+
+No errors detected
+No warnings generated

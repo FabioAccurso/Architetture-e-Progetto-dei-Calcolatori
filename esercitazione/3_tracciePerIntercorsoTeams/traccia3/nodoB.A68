@@ -1,0 +1,71 @@
+******************************************************
+*	Sistema B- Trasmettitore
+******************************************************
+	ORG	$8000
+KEEP	DC.B	0
+MSG	DC.B	1,2,3,4
+IDX	DC.B	1
+PIADB	EQU	$2006
+PIACB	EQU	$2007
+N	EQU 	4
+
+
+*************************************************************
+	ORG	$8100
+MAIN	JSR		DVOUT		;Inizializzazione della PIA
+	MOVE.W	SR,D0
+	ANDI.W	#$D8FF,D0	;Smaschera interruzioni 
+	MOVE.W	D0,SR
+	
+	MOVEA.L	#MSG,A1
+	MOVEA.L	#PIADB,A0
+	MOVE.B	(A1),D1		; Lettura Fittizia
+	MOVE.B	(A1),(A0)	; Scrittura
+
+
+*********************************************
+LOOP	JMP	LOOP
+*********************************************
+DVOUT		MOVE.B	#0,PIACB
+		MOVE.B	#$FF,PIADB
+		MOVE.B	#%00100101,PIACB
+		RTS
+*********************************************************
+	ORG	$8700
+INT	MOVE.L	D0,-(A7)
+	MOVE.L	D1,-(A7)
+	MOVE.L	D2,-(A7)
+	MOVE.L	A0,-(A7)
+	MOVE.L	A1,-(A7)
+
+	MOVEA.L	#PIADB,A0
+	MOVEA.L	#MSG,A1
+	MOVE.B	IDX,D0
+	
+LOKE	MOVE.B	KEEP,D2
+	CMP.B		#1,D2
+	BEQ	LOKE
+
+	CMP.B		#N,D0
+	BNE	SEND
+	MOVE.B	#0,D0
+
+SEND	MOVE.B	(A1),D1		; Lettura Fittizia
+	MOVE.B	(A1,D0),(A0)	; Scrittura
+	ADDI.B		#1,D0		; Incremento contatore e aggiorno
+	MOVE.B	D0,IDX
+
+FIN	MOVE.L	(A7)+,A1
+	MOVE.L	(A7)+,A0
+	MOVE.L	(A7)+,D2
+	MOVE.L	(A7)+,D1
+	MOVE.L	(A7)+,D0
+
+	RTE
+
+
+
+*****************************************************
+	END	MAIN
+
+
