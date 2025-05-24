@@ -1,0 +1,203 @@
+**********************************************************
+*	Sistema A - Ricevitore
+***********************************************************
+* AREA DATI
+******************************************
+	ORG $8000
+*Variabili
+MSGB	DS.L	10	; Messaggi ricevuti da B 
+MSGC	DS.L	10	; Messaggi ricevuti da C
+IDXB	DC.B	0	; Offset Messaggi B
+IDXC	DC.B	0	; Offset Messaggi C
+CB	DC.B	0	; Contatore caratteri messaggio B
+CC	DC.B	0	; Contatore caratteri messaggio C
+MB	DC.B	0	; Messaggi B
+MC	DC.B	0	; Messaggi C
+TUR	DC.B	0	; Contatore Iterazioni (0 se di B, 1 se di C)
+FAS	DC.B	1	; Variabile per la fase (1 o 2)
+BSOS	DC.B	0	; Variabile per verificare se B si e' sospeso
+CSOS	DC.B	0	; Variabile per verificare se C si e' sospeso
+
+
+*Macro
+N		EQU	4
+M		EQU	5
+PIADAB	EQU	$2004
+PIACAB	EQU	$2005
+PIADAC	EQU	$2008
+PIACAC		EQU	$2009
+
+*******************************************************************	
+* AREA MAIN
+*******************************************
+	ORG	$8100
+MAIN	JSR	DVIN
+	MOVE.W	SR,D0
+	ANDI.W	#$D8FF,D0
+	MOVE.W	D0,SR
+
+******************************************************************
+LOOP	JMP	LOOP
+*****************************************************************
+* INIZIALIZZAZIONE PIA-B E PIA-C
+*****************************************
+DVIN	MOVE.B	#$00,PIACAB
+	MOVE.B	#$00,PIADAB
+	MOVE.B	#%00100101,PIACAB
+	MOVE.B	#$00,PIACAC
+	MOVE.B	#$00,PIADAC
+	MOVE.B	#%00100101,PIACAC
+	RTS
+****************************************************************
+* Interruzione relativa a recezione caratteri da B
+****************************************************
+	ORG	$8700
+INTB	MOVEM.L	D0-D4/A0-A1,-(A7)
+	
+	MOVE.B	FAS,D0	
+	MOVE.B	TUR,D4
+	CMP	#1,D0
+	BNE	F2
+	
+F1	MOVE.B	#0,BSOS
+	MOVE.B	#0,TUR
+	MOVEA.L	#MSGB,A0
+	MOVEA.L	#PIADAB,A1
+	MOVE.B	CB,D1
+	MOVE.B	MB,D2
+	MOVE.B	IDXB,D3
+
+	MOVE.B	(A1),(A0,D3)
+	ADDI.B		#1,D1
+	ADDI.B		#1,D3
+	MOVE.B	D1,CB
+	MOVE.B	D3,IDXB
+
+	CMP.B		#N,D1
+	BNE	EOI
+	ADDI.B		#1,D2
+	MOVE.B	#0,D1
+	MOVE.B	D1,CB
+	MOVE.B	D2,MB
+
+	CMP.B		#2,D2
+	BNE	EOI
+	MOVE.B	#2,D0
+	MOVE.B	D0,FAS
+	MOVE.B	#1,TUR
+	
+	CMP.B		#1,CSOS
+	BNE	EOI
+	MOVE.B	#0,CSOS
+	MOVE.L	#MSGC,A0
+	MOVE.L	#PIADAC,A1
+	MOVE.B	CC,D1
+	MOVE.B	IDXC,D3
+	MOVE.B	(A1),(A0,D3)
+	ADDI.B		#1,D1
+	ADDI.B		#1,D3
+	MOVE.B	D1,CC
+	MOVE.B	D3,IDXC
+	JMP	EOI
+
+
+F2	CMP.B		#1,D4
+	BEQ	SEOI
+	MOVE.B	#0,BSOS
+	MOVE.B	#0,TUR
+	MOVE.L	#MSGB,A0
+	MOVE.L	#PIADAB,A1
+	MOVE.B	CB,D1
+	MOVE.B	MB,D2
+	MOVE.B	IDXB,D3
+
+	MOVE.B	(A1),(A0,D3)
+	ADDI.B		#1,D1
+	ADDI.B		#1,D3
+	MOVE.B	D1,CB
+	MOVE.B	D3,IDXB
+
+	CMP.B		#N,D1
+	BNE	EOI
+	ADDI.B		#1,D2
+	MOVE.B	#0,D1
+	MOVE.B	D1,CB
+	MOVE.B	D2,MB
+
+	MOVE.B	#1,TUR
+	CMP.B		#1,CSOS
+	BNE	EOI
+	MOVE.B	#0,CSOS
+	MOVE.L	#MSGC,A0
+	MOVE.L	#PIADAC,A1
+	MOVE.B	CC,D1
+	MOVE.B	IDXC,D3
+	MOVE.B	(A1),(A0,D3)
+	ADDI.B		#1,D1
+	ADDI.B		#1,D3
+	MOVE.B	D1,CC
+	MOVE.B	D3,IDXC
+	JMP	EOI
+
+
+SEOI	MOVE.B	#1,BSOS
+EOI	MOVEM.L	(A7)+,D0-D4/A0-A1
+	RTE
+
+****************************************************************
+* Interruzione relativa a recezione caratteri da C
+*****************************************************
+	ORG	$8900
+INTC	MOVEM.L	D0-D4/A0-A1,-(A7)
+	MOVE.B	FAS,D0
+	CMP.B		#1,D0
+	BEQ	SEOI1
+	
+	MOVE.B	TUR,D1
+	CMP.B		#0,D1
+	BEQ	SEOI1
+	
+	MOVE.B	#0,CSOS
+	MOVEA.L	#PIADAC,A0
+	MOVEA.L	#MSGC,A1
+	MOVE.B	IDXC,D2
+	MOVE.B	CC,D3
+	MOVE.B	MC,D4	
+
+	MOVE.B	(A0),(A1,D2)
+	ADDI.B		#1,D2
+	ADDI.B		#1,D3
+	MOVE.B	D3,CC
+	MOVE.B	D2,IDXC	
+	
+	CMP.B		#N,D3
+	BNE	EOI1
+	MOVE.B	#0,D3
+	MOVE.B	D3,CC
+	ADDI.B		#1,D4
+	MOVE.B	D4,MC
+	
+	MOVE.B	#0,TUR
+	CMP.B		#1,BSOS
+	BNE	EOI1
+	MOVE.B	#0,BSOS
+	MOVE.L	#MSGB,A0
+	MOVE.L	#PIADAB,A1
+	MOVE.B	CB,D1
+	MOVE.B	MB,D2
+	MOVE.B	IDXB,D3
+
+	MOVE.B	(A1),(A0,D3)
+	ADDI.B		#1,D1
+	ADDI.B		#1,D3
+	MOVE.B	D1,CB
+	MOVE.B	D3,IDXB
+
+SEOI1	MOVE.B	#1,CSOS
+EOI1	MOVEM.L	(A7)+,D0-D4/A0-A1
+	RTE
+
+	END MAIN
+
+
+
